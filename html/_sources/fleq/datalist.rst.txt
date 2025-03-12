@@ -1,0 +1,299 @@
+
+
+.. _datalist:
+
+``DataList``
+*************
+
+Recursion over ``QList`` values imposes a qubit-based
+view of quantum programming. Many domain-specific quantum algorithms
+require a higher level of abstraction. For this purpose,
+FLEQ introduces the ``datalist::DataList`` type for compile-time strings.
+Like a ``QList``, a ``DataList``
+is an immutable compile-time list that wraps statically-defined C strings or
+``char`` arrays.  A ``DataList`` can be constructed from a string literal via
+the constructor,
+or it can be constructed from a file using a pair of macros.
+
+.. code-block:: C++
+
+  // in file "text.txt" ////////////////////////
+
+  STRINGIFYDATA(
+  This is from a file!
+  )
+
+  //////////////////////////////////////////////
+
+  const datalist::DataList str_src("This is from source!");
+
+  import_with_name_begin(file_str)
+  #include "test.txt"
+  import_with_name_end(file_str);
+  // equivalent to
+  //
+  // char file_str_raw[] = "this is from file!";
+  // const DataList file_str(file_str_raw);
+
+Basic ``DataList`` operations
+------------------------------
+
+Like ``QList`` and ordinary C++ ``std::string``, a ``DataList`` can be
+sliced, concatenated, sized, and addressed.
+
+``unsigned int datalist::DataList::size()``
+
+  Return the length of the ``DataList``. Compile-time resolvable.
+
+``char datalist::DataList::operator[](unsigned long i)``
+
+  Index into a ``DataList``, e.g. ``data[i]``.
+
+``datalist::DataList datalist::operator+(DataList data1, DataList data2)``
+
+  Concatenate two data lists, e.g. ``data1 + data2``.
+
+``datalist::DataList datalist::DataList::operator()(unsigned long start, unsigned long end)``
+
+``datalist::DataList datalist::DataList::operator()(DataList start, unsigned long end)``
+
+``datalist::DataList datalist::DataList::operator()(unsigned long start, DataList end)``
+
+``datalist::DataList datalist::DataList::operator()(DataList start, DataList end)``
+
+  Each of the four variants above returns a slice of a ``DataList``, starting at the index ``start`` (inclusive) and
+  ending at the index ``end`` (exclusive); e.g. ``data(start, end)``. When ``start`` or ``end`` are ``DataList`` values,
+  the index associated with that ``DataList`` is the result of ``find(start)``/``find(end)`` respectively.
+
+``datalist::DataList datalist::operator>>(DataList data, unsigned long i)``
+
+  Return the right shift of ``data`` by offset ``i``,
+  i.e. ``data >> i == data(i, data.size())``.
+
+``datalist::DataList datalist::operator<<(DataList data, unsigned long i)``
+
+  Return the left shift of ``data`` by offset ``i``,
+  i.e. ``data << i == data(0, data.size() - i)``.
+
+``datalist::DataList datalist::operator+(DataList data, unsigned long i)``
+
+  Return the right shift of ``data`` by offset ``i``,
+  i.e. ``data + i == data(i, data.size())``.
+
+``datalist::DataList datalist::operator++()``
+
+  Return the right shift of a ``DataList`` by 1,
+  i.e. ``++data == data(1, data.size())``.
+
+``unsigned long datalist::DataList::count(DataList sub_str1, DataList sub_str2, ...)``
+
+  Return the number of occurrences of any of the substring arguments in the
+  current ``DataList``.
+
+  In the case of variadic arguments like ``count``, the behavior is ``OR``-ed over all the arguments. So for example,
+  ``data.count("A", "B", "C")`` returns the number of times the ``DataList`` contains ``"A"`` or ``"B"``
+  or ``"C"``.
+
+``DataList`` conversions
+-------------------------
+
+FLEQ provides several functions for casting a ``DataList`` of a
+specific form to basic C types and visa versa:
+
+``int datalist::DataList::to_int()`` and ``int datalist::_i(DataList data)``
+
+  Convert a ``DataList`` into an integer; analogous to ``std::stoi``.
+
+``double datalist::DataList::to_double()`` and ``double datalist::_d(DataList data)``
+
+  Convert a ``DataList`` into a double; analogous to ``std::stod``.
+
+``bool datalist::DataList::to_bool()`` and ``bool datalist::_b(DataList data)``
+
+  Convert a ``DataList`` into an bool.
+
+``datalist::DataList(int i)``
+
+  Produce a ``DatatList`` from an integer, e.g. ``DataList x (5);``
+  produces a ``DataList`` variable ``x`` with value ``"5"``.
+
+If a cast fails (i.e. if the ``to_int()`` is called on a ``DataList`` that does
+not consist of digits), the behavior is undefined, which could lead to incorrect
+results. Note that the compiler does not exit in this case, though this behavior
+may be changed in future versions. Best practice is to confirm the ``DataList``
+has the appropriate form before casting. For example, the following ``QExpr``
+function expects a ``DataList`` of the form ``0`` or ``1``, and casts the result
+to a boolean used in the conditional of a ``cIf``.
+
+.. code-block:: C++
+
+  QExpr unguarded_cast(qbit &q, datalist::DataList cond) {
+    return qexpr::cIf(cond.to_bool(), qexpr::_X(q), qexpr::identity());
+  }
+
+If this function is evaluated with an ill-formed input, such as
+``unguarded_cast(q, "X")``, the program will still compile, but will fail at
+runtime without any kind of error handling.
+
+A user can prevent this failure case by using an additional ``cIf`` to ensure
+the ``DataList`` has the appropriate form. For example:
+
+.. code-block:: C++
+
+  QExpr guarded_cast(qbit &q, datalist::DataList cond) {
+    return qexpr::cIf(cond == datalist::DataList("0")
+                   || cond == datalist::DataList("1"),
+              qexpr::cIf(cond.to_bool(), qexpr::_X(q), qexpr::identity()),
+              qexpr::exitAtCompile("Expected 0 or 1.")
+          );
+  }
+
+If this function is evaluated with an ill-formed input, the compiler will exit
+with the error message "Expected 0 or 1".
+
+
+
+Parsing
+---------
+
+To aid with parsing, ``DataList`` includes several substring search functions
+returning an index into the current ``DataList``.
+
+``unsigned long datalist::DataList::find(DataList sub_str)``
+
+  Returns the index of the start of the first occurrence of ``sub_str``
+  in the ``DataList``.
+
+``unsigned long datalist::DataList::find_last(DataList sub_str)``
+
+  Returns the index of the start of the last occurrence of ``sub_str``
+  in the ``DataList``.
+
+``unsigned long datalist::DataList::find_any(DataList chars)``
+
+  Returns the index of the first occurrence of any of the characters in
+  ``chars``. For example, ``DataList("xyz20").find_any("012")`` will return the index
+  ``3`` as ``"xyz20"[3] = "2"``.
+
+``unsigned long datalist::DataList::find_any_last(DataList chars)``
+
+  Returns the index of the last occurrence of any of the characters in
+  ``chars``.
+
+``unsigned long datalist::DataList::find_not(DataList sub_str)``
+
+  Returns the index of the first character not matching any character of
+  ``sub_str``. Will return ``0`` if ``sub_str`` is not a prefix of the
+  current ``DataList``.
+
+``unsigned long datalist::DataList::find_not_last(DataList sub_str)``
+
+  Returns the index of the last character not matching any character of
+  ``sub_str``. Will return ``size()`` if ``sub_str`` is not a suffix
+  of the current ``DataList``.
+
+In addition, ``DataList`` contains several utilities that return substrings.
+
+``datalist::DataList datalist::DataList::next(DataList sub_str1, DataList sub_str2, ...)``
+
+  Returns the ``DataList`` slice beginning at the first occurrence of any of the arguments.
+  For example:
+
+    ``DataList("find this 123 or this 345").next("this") = "this 123 or this 345"``
+
+    ``DataList("The quick brown fox.").next("fox", "quick") = "quick brown fox."``
+
+    ``DataList("The quick brown fox.").next("fox", "house") = "fox."``
+
+``datalist::DataList datalist::DataList::after_next`` ``(DataList sub_str1,`` ``DataList sub_str2,`` ``...)``
+
+  Returns the ``DataList`` slice beginning directly after the first occurrence of any of the arguments.
+  For example:
+
+    ``DataList("find this 123 or this 345").after_next("this") = " 123 or this 345"``
+
+    ``DataList("The quick brown fox.").after_next("fox", "quick") = " brown fox."``
+
+    ``DataList("The quick brown fox.").after_next("fox", "house") = "."``
+
+``datalist::DataList datalist::DataList::next_not(DataList sub_str)``
+
+  Returns the ``DataList`` occurring after the index ``find_not(sub_str)``.
+
+``datalist::DataList datalist::DataList::next_block(DataList chars)``
+
+  Returns the first ``DataList`` slice whose elements
+  all match any of the characters in ``chars``.
+
+  For example, ``d.next_block("0123456789")`` will return
+  the first integer in ``d``.
+
+    ``DataList("July 18, 1968").next_block("0123456789") = "18"``
+
+``datalist::DataList datalist::DataList::last(DataList sub_str1,`` ``DataList sub_str2,`` ``...)``
+
+  Returns the ``DataList`` slice beginning at the last occurrence of any of the
+  substring arguments.
+
+``datalist::DataList datalist::DataList::after_last(DataList sub_str1,`` ``DataList sub_str2,`` ``...)``
+
+  Returns the ``DataList`` slice beginning immediately after the last
+  occurrence of any of the substring arguments.
+
+``datalist::DataList datalist::DataList::last_not(DataList sub_str)``
+
+  Returns the slice of the current ``DataList`` starting at the
+  index ``find_not_last(sub_str)``.
+
+``datalist::DataList datalist::DataList::last_block(DataList sub_str)``
+
+  Returns the last ``DataList`` block whose elements
+  all match any of the characters in ``chars``.
+  For example:
+
+    ``DataList("July 18, 1968").last_block("0123456789") = "1968"``
+
+Runtime and compile-time conversions
+-------------------------------------
+
+
+If a compile-time ``DataList`` is needed at runtime, it can be converted into
+either a runtime equivalent ``std::string``, or to a ``char`` array.
+
+``std::string datalist::to_string(DataList data)``
+
+  Return the runtime C++ string represented by the ``DataList`` ``data``.
+
+``char * datalist::to_char_array(DataList data)``.
+
+  Return the runtime C string represented by the ``DataList`` ``data``.
+
+Some DSL examples (see :ref:`DSL`) may want to create an array or ``QList``
+whose size is specified by a ``DataList`` input. The ``datalist`` namespace thus
+also includes a template function that can take as input a constant integer and allocates
+an array of that size of any type as specified by the template argument, including ``qbit``.
+
+
+``template<typename Type> Type`` ``* datalist::IQC_alloca(DataList name = "",`` ``const unsigned long N = 1)``
+
+  At compile-time, generate an array of ``Type`` objects of size ``N`` with
+  IR name ``name`` (for printing and debugging purposes) and return a pointer to the first element.
+  Note, no additional memory management is required. The scope of the variable will be the same as
+  if a standard array allocation.
+
+
+For example, suppose a user has a quantum kernel expression that takes as input a ``QList`` of arbitrary size and returns (by reference) a boolean result. The user want to write a function that takes a ``DataList`` argument that specifies the number of qubits to use in the ``QList``. They could use ``IQC_alloca`` to allocate the appropriate ``QList`` at compile-time as follows:
+
+.. code-block:: C++
+
+  QExpr op(qlist::QList qs, bool& result) {...}
+
+  QExpr opOnNQubits(datalist::DataList N, bool &result) {
+
+    qbit *qs_raw = datalist::IQC_alloca<qbit>("qs", N.to_int());
+    qlist::QList qs (qs_raw);
+
+    return op(qs, result);
+  }
+
+This function can be invoked on 3 qubits via a call to ``qexpr::eval_hold(opOnNQubits("3", result))``.

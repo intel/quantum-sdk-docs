@@ -1,0 +1,165 @@
+.. _qec_protocol:
+
+QEC Protocol
+============
+
+.. contents::
+   :local:
+   :depth: 3
+
+Quantum Error Correction (QEC) is a common workload as researchers look to 
+develop new methods, codes and circuits to make practical QEC a reality.
+Moreover, QEC is a more involved example of hybrid quantum-classical
+workloads due to the need for classical decoding of error syndromes which is then
+used to feedback as information on the current state of the quantum system. 
+Futhermore, details about the circuit itself are need to feedback into the classical
+calculation in order to ensure :emphasis:`fault tolerance`.
+To facilitate QEC as a workload given these nuances, the |IQSDK| intoduces the 
+:emphasis:`QECProtocol` class. ``QECProtocol`` is structurally a backend
+so that like simulation or hardware platforms, it has access to the Quantum Runtime 
+and the compiled circuits, but its function is distinct from those other backends.
+Along with other information provided to it, it constructs from the compiled circuits
+a QEC protocol which provides QEC code analysis, and with a single call to its APIs, 
+executes syndrome extraction using any available |IQSDK| backend device, handles all 
+data collection and manipulation for the sake of decoding, decodes the syndrome using
+one of several avaiable methods, and returns the desired analysis to your C++ programming
+environment. It also provides debugging tools which allows the user to ensure the protocol 
+is functioning correctly. 
+
+Passing QEC Circuits as a ``QECKernel``
+---------------------------------------
+
+``quantum_kernel`` functions are not intended to be called directly with ``QECProtocol``.
+Rather, they are called indirectly by passing the ``QECProtocol`` a list of ``QECKernel``'s.
+A ``QECKernel`` is defined as a function pointer to a ``quantum_kernel`` function with
+the function signature ``void ()(iqsdk::CbitVector&)``. In the body of the ``QECKernel``,
+measurements are written to the passed ``iqsdk::CbitVector&``. There is no convention
+requiring which measurement are written to which element of the ``iqsdk::CbitVector`` so
+long as no element is overwritten in a single call to the function. There is also no 
+requirement to expand the size of the ``iqsdk::CbitVector`` as indexing into the
+array does this automatically; see :TODO:`add link`. Analysis of the circuit by the 
+``QECProtocol`` class ensures that measurements are properly mapped in the final
+syndrome passed to the decoder. There are two types of ``QECKernel``'s passed to the 
+``QECProtocol``:
+
+* The :emphasis:`primary` ``QECKernel`` represents the circuit for extracting the syndrome
+  bits. From the primary ``QECKernel``, the ``QECProtocol`` will infer the structure of the 
+  underlying QEC code, (which is assumed to be a stabilizer code; see :TODO:`add ref`), and 
+  construct a weighted decoding graph, where edges and their weights are determined by the structure
+  of the circuit and a basic error model for the gates which make up the circuit. This is also
+  used to properly map measurements as extracted by running the ``QECKernel`` for multiple rounds,
+  any pre-decoding manipulation (such as binary sum between rounds), and passing these results to
+  the specified decoder.
+
+* Several :emphasis:`destructor` ``QECKernel``'s can be passed to represent a circuit for
+  the destructive measurement of a logical operator of the code. The ``QECProtocol`` analysis
+  infers which logical operator is measured, how to reconstruct the measured outcome from the 
+  raw measurements in the circuit and what syndrome bits can also be extracted and added to 
+  the syndrome passed to the specified decoder. 
+
+
+Setup of a ``QECProtocol``
+--------------------------
+
+Like other backends, detailed specifications are passed through a config object
+``QECProtocolConfig``. This contains the information:
+
+* ``std::string decoding_method`` which specifies a decoding method. The current available 
+  options are:
+
+  * ``"union-find"``: Uses the union-find decoding method as described in :TODO:`add ref`
+                      to implement a matching algorithm. The method is not minimum weight
+                      but is generally fast.
+
+  * ``"Monte-Carlo-union-find"`` : :TODO:`experimental; may not make it to users`
+
+  * ``"blossom"`` : :TODO:`not yet implemented`
+  
+  * ``"custom"`` : :TODO:`not yet implemented`
+
+* ``iqsdk::Device *runner_device`` which is a pointer to another |IQSDK| backend device
+  which is intended to run the syndrome extraction circuit.
+
+* ``iqsdk::ErrorRates errors`` and ``iqsdk::GateTimes times`` are used to add weights to
+  a generated decoding graph, where applicable. These objects are as described in 
+  :ref:`CliffordSimulator<clifford>`.
+   
+* ``QECKernel primary`` represents the primary circuit as described above.
+
+* ``std::vector<QECKernel> destructors`` represents the list of destructor circuits as 
+   described above.
+
+* ``unsigned rounds`` is the intended number of rounds of syndrome extraction. Note, this
+   also affects the size of the generated decoding graph.
+
+* ``unsigned concurrency`` is the number of concurrent threads used for parallelizing the
+   decoding of multiple iterations as specified by the runner device.
+
+This information can be populated by being passed to a constructor, accessed directly or through
+available member APIs.
+
+A ``QECProtocolConfig`` is then passed to the ``QECProtocol`` constructor. The user must then
+call ``iqsdk::QRT_ERROR_T QECProtocol::ready()`` which builds the QEC protocol, performs analysis 
+on the circuits to infer the properties of the QEC code, and automatically readies the runner 
+device for execution. If an issue is found with the passed ``QECProtocolConfig`` or runner device,
+this function will return ``iqsdk::QRT_ERROR_FAIL``, or return ``iqsdk::QRT_ERROR_SUCCESS`` 
+otherwise. Note the ``iqsdk::QRT_ERROR_SUCCESS`` flag is returned even in the case of QEC code 
+analysis errors.
+
+
+Code Analysis using ``QECProtocol``
+-----------------------------------
+
+After the ``QECProtocol::ready()`` function is called, the QEC code analysis is available through several
+member APIs. The first analysis to consider is any analysis errors. The user can check if errors were 
+generated via ``bool QECProtocol::hasAnalysisErrors()`` and see any generated errors via
+``std::string QECProtocol::getAnalysisErrors()``. The types of analysis error that can be generated
+include:
+
+* The circuits contain un-supported gates, i.e. a non-Clifford gate is found.
+
+* The measured operators as inferred by the primary circuit does not form a proper stabilizer group.
+
+* The stabilizer group does not allow for a proper logical subspace.
+
+* A destructor circuit did not measure any logical operator  as infer from the primary circuit. 
+
+* The primary Clifford circuit did not preserve the stabilizer group (damages the logical state). 
+
+* The decoding graph inferred by the primary circuit and error specification is ill-formed.
+
+Assuming no analysis erorrs are found, information about the code can be retrieved including
+testing if a Pauli operator (passed as a ``iqsdk::PauliOp``; see :ref:`PauliOp<pauli_op>`) is
+a stabilizer or logical operator for the inferred code. The user can also get the logical 
+operator measured by any of the destructor circuits, as well as the decoding graph and edge-error
+map generated by the analysis.
+
+
+Execution using ``QECProtocol``
+-------------------------------
+
+Once the QEC code is confirmed to be correct, there are several functions for executing the 
+protocol:
+
+* ``void QECProtocol::encode(unsigned i)`` encodes the logical state on the runner device as the
+   +1 eigenstate of the logical operator specified by the destructor circuit ``i``. How this
+   encoding happens depended on the runner device:
+
+   - ``CliffordSimulator`` encodes the exact unerrored logical state by manipulating the simulator
+     directly.
+
+   - :TODO:`handle other backends`
+
+* ``std::vector<iqsdk::PauliOp> run()`` executes the protocol with persistent state if supported
+   by the runner device. No correction is applied to the runner device, but rather a decoded error
+   is returned for each iteration, the number of which is as determined by the runner backend.
+
+* ``double runAndDestroy(unsigned i)`` executes the protocol with the destructor circuit ``i``, 
+   extracts the logical measurement and returns the average corrected outcome over the number of 
+   iterations as determined by the runner backend.
+
+* ``double runAndDestroyWithDebug(unsigned i)`` executes the protocol the same as the above while
+   printing to screen the available debug information for each iteration on the runner backend. What
+   is printed is determined by the runner device, but in general, every case will display decoding
+   information including the error syndrome measured for that iteration and the decoded result.
+

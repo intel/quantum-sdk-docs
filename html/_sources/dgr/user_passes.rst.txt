@@ -1,0 +1,136 @@
+.. _user_passes:
+
+Running and Writing Custom Passes for the |Intel| Quantum Compiler
+==================================================================
+
+.. _intro_passes:
+
+Introduction
+------------
+
+The |IQSDK| is built on the `LLVM <https://llvm.org/>`_ compiler's pass-based
+structure.
+The |Intel| Quantum Compiler iteratively performs transformations of the program including
+optimization and lowering to hardware specific gates to compile a quantum program.
+This ordering can be changed, and extra transformations can be added to alter
+the compilation of the program. While the |IQSDK| has a defined set of
+transformations, there is room for extra passes to be added.
+The process of adding passes to the compilation flow from an external library are detailed below.
+
+There are further details about how to access the development tools to create your own |Intel| Quantum Passes as well.
+
+.. _running_passes:
+
+Running Passes
+--------------
+
+As mentioned, the |IQSDK| provides a driver script with mechanisms to insert
+LLVM passes, passes from the |IQSDK|, or custom passes from external libraries,
+at specific points during the compilation flow of a quantum program.
+
+Defining Custom Passes to Run
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: console
+
+    $ intel-quantum-compiler -E <user_defined_library> -e <compilation_stage_1> -a <pass_1>,...,<pass_n> -A <pass_option> -A <pass_option> -e <compilation_stage_2>  -a <pass_1>,...,<pass_n> -A <pass_option> -A <pass_option> <source_file>
+
+Custom passes will be defined in libraries external to the |Intel| Quantum Passes library.  The :code:`-E` flag with the path to the custom library as the argument, gives the compilation process access to the passes defined in the library. There are additional flags needed to define the compilation stage (when to run passes), pass lists (what passes to run), and a sequence's arguments that should be passed to those passes at each particular stage.  First, a compilation stage is defined with the :code:`-e` flag, followed by the name of one of the compilation stages listed below.  Next, define the passes to be run during that compilation stage with the :code:`-a` flag, followed by a comma-delimited list of pass names defining the passes that will be run during that stage. Then, optionally add the :code:`-A` flag to pass each argument to the compiler invocation specified during the current :code:`-e` specification.  The arguments given to :code:`-A` are concatenated together with a space between each argument.  Compilation passes during other stages can be defined by using additional instances of the :code:`-e` flag and its supporting options.
+
+However, you do not have to specify an external library if the custom passes are already defined within the |IQSDK| or the LLVM Compiler. In this case, the :code:`-E` flag and argument can be omitted.  For example, to run the Dead Code Elimination pass from LLVM, the invocation would be:
+
+.. code-block:: console
+
+    $ intel-quantum-compiler -e <compilation_stage_1> -a dce <source_file>
+
+Custom Pass Compilation Stages
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+There are five different stages where custom passes can be inserted:
+
+* Preconditioning (:code:`precond`)
+* Presynthesis (:code:`presynth`)
+* Prelowering (:code:`prelower`)
+* Prescheduling (:code:`presched`)
+* Presplitting (:code:`presplit`)
+
+The first place that passes can be inserted into the pass pipeline is before the quantum program has been verified.  At this point, you can expect there are no native quantum gates, and there should be no control flow constructs in the quantum kernels.  Other optimizations expect a program with one execution within a quantum kernel. So, if additional control flow structures like loops or branching instructions have been added that cannot be handled by the native "flattening" optimizations provided by the SDK, they must be removed before this point with a custom pass.  This is also a good place to replace your own custom functions with an intrinsic, or set of intrinsics if needed.  This is called the "Precondition" section or :code:`precond`.
+
+The second stage where passes can be inserted is only available when using optimization level number 1.  With this optimization there is extra synthesis of quantum programs.  To insert a custom passes prior to synthesis, use the "Presynthesis" section or :code:`presynth`.
+
+The third stage where custom passes can be added is directly after the verification of the quantum program.  If there are optimizations that act on the canonical gate set provided by the frontend, they should be performed here.  At this point, you can expect that the remaining control flow structures will no quantum instructions. This is called the "Prelowered" section or :code:`prelower.`  If a custom placement pass needs to be written, it should be performed here.
+
+The fourth stage stage where custom passes can be inserted is after the lowering of the quantum gates to the canonical gates for the device and the placement of the qubits on a device. At this point, there should be no canonical gates left, they should be replaced with native gate decompositions.  If a gate was added that is not caught by the decomposition passes, this is the point to replace it with a native gate.  Additionally, this is the stage before routing, and scheduling. This is called the Prescheduling section or :code:`presched`.  If a custom routing and scheduling pass needs to be written, it should be performed here.
+
+The fifth and final opportunity is after routing, scheduling, but before the quantum kernels are separated from the rest of the program. At this point, the program acts on physical qubits and spin-native gates rather than the canonical gates.  Any changes made at this point must honor the connectivity of a device.  Passes that care about the physical qubits that the circuit is being run on should be made here.  Or, if you only want to optimize what will be run, and need guarantees about which qubits you are acting on, or the kind of gate that is being used, this is the place to do it. This is the "Presplitting" section or :code:`presplit`.
+
+Putting all of this together, an example command line invocation from the an example external library, in this case from the open-source |Intel| Quantum Compiler Passes repository, is:
+
+.. code-block:: console
+
+    $ intel-quantum-compiler -E path/to/libExampleMultiPass.so -e prelower -a print-all-gates,x-to-hzh,print-all-gates -A -example-pass-opt -A testing -e presplit -a print-all-gates -A -example-pass-opt -A testing-two <source_file>
+
+This will run the sequence of passes "Print All Gates", "X to HZH" and
+"Print All Gates" during the prelowering stage of the compilation process
+along with the option :code:`-example-pass-opt testing`.
+Then it will run the "Print All Gates" pass during the presplitting stage using
+the option :code:`-example-pass-opt testing-two`.
+
+Investigating Intermediate Compilation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+It can be useful to examine the intermediate steps of compilation. By specifying the ``-k`` flag,
+three ``.ll`` files will be generated. The first is always generated during compilation, the
+``<file_name>.ll``. This is the initial IR generated by the frontend of the Intel Quantum Compiler,
+it has had no quantum optimizations applied to it. The additional two files, ``<file_name>_classical_final.ll``
+and ``<file_name>_quantum.ll``, are the final IR files with the quantum and classical components separated
+after all quantum optimizations have been applied.
+
+For more granularity, users can specify the ``-Z <stage_name>`` flag. ``<stage_name>``
+is the step of compilation they wish to examine. This will stop compilation after that stage is run.
+Allowed options are:
+* ``flatten``
+* ``unroll``
+* ``validate``
+* ``lower``
+* ``synthesize``
+* ``schedule``
+* ``separate``
+This will generated a file with the naming convention ``<file_name>_<stage_name>.ll``.
+
+It is also possible to start compilation from a specific stage. This can be done by specifying the
+``-z <stage_name>`` flag with any of the same stages listed above. If able, the compiler will
+process the input IR file, and continue compilation starting with the specified stage.
+
+.. _building_quantum_passes_repo:
+
+The Open-Source Compiler Passes Repository
+------------------------------------------
+
+The |Intel| Quantum Passes repository, `found here <https://github.com/intel/quantum-passes>`_, provide a mechanism for developers to add their own functionality and optimizations to the compilation process, or to modify the quantum passes to fit their needs.
+
+This is not a necessary feature for most users of the |IQSDK|. Only developers looking to write and add their own features and optimizations to the quantum compilation process need to be aware of this section.
+
+There are two main environments where building passes is supported, via the `docker container <https://hub.docker.com/r/intellabs/intel_quantum_sdk>`_ or on the `|Intel| Developer's Cloud <https://www.intel.com/content/www/us/en/developer/tools/devcloud/overview.html>`_.
+
+The instructions for how to build the Quantum Passes can be found in the repositories themselves, but the basic steps are detailed here as well.  This process is only necessary to change the operation of the passes themselves, or to add passes to the compilation process.
+
+To build the repository you must have access to the |IQSDK|, `CMake <https://cmake.org/>`_ and either the `Ninja  <https://ninja-build.org/>`_ or `Make <https://www.gnu.org/software/make/>`_ build systems.
+
+The first step is to clone the Quantum Passes repository:
+
+.. code-block:: console
+
+    $ git clone https://github.com/intel/quantum-passes.git
+    $ cd quantum-passes
+    $ mkdir build
+    $ cd build
+
+Then build the repository:
+
+.. code-block:: console
+
+    $ cmake -G Ninja -DLT_INTEL_QUANTUM_SDK_LOC=<sdk_install_dir> ../
+    $ ninja
+
+The :code:`sdk_install_dir` is the location where the |IQSDK| is installed on your system, this contains the necessary compiler tools and libraries to successfully build and run the Quantum Passes.  If the Ninja build system is not available, use :code:`-G "Unix Makefiles"` instead.

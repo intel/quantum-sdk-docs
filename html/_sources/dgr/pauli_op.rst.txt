@@ -1,0 +1,100 @@
+.. _pauli_op:
+
+``iqsdk::PauliOp`` class
+=================
+
+Intro to Pauli Operators
+------------------------
+
+:emphasis:`Pauli operators` are useful for understanding and characterizing quantum computing and quantum information.
+For a single-qubit the Pauli operators are defined by the four 2x2 matrices:
+
+.. math::
+
+   \text{I} &= \sigma^0 = \begin{bmatrix}  1 & 0 \\
+                               0 & 1 \\
+               \end{bmatrix}
+
+   \text{X} &= \sigma^1 = \begin{bmatrix}  0 & 1 \\
+                                           1 & 0 \\
+                          \end{bmatrix}
+
+   \text{Y} &= \sigma^2 = \begin{bmatrix}  0 & -i \\
+                                           i & 0 \\
+                          \end{bmatrix}
+
+   \text{Z} &= \sigma^3 = \begin{bmatrix}  1 & 0 \\
+                                           0 & -1 \\
+                          \end{bmatrix}
+
+We then extend this to an arbitrary number of qubits by taking every direct product over these four
+operators for each qubit along with an additional constant phase in :math:`\{1, i, -1, -i\}`. This collection has
+several nice properties:
+
+* Pauli operators are either Hermitian (:math:`P = P^\dagger`) or skew-Hermitian (:math:`P = - P^\dagger`) as 
+  determined by whether its constant phase is real or imaginary, respectively. All Pauli operators are also
+  unitary. This implies that :math:`PP = \pm I`, with the sign determined by whether :math:`P` is Hermitian or
+  not. 
+
+* The set of all Pauli operators forms the :emphasis:`Pauli group` which is closed under matrix/operator 
+  multiplication. Multiplication for the single-qubit case can be presented via the relation :math:`X Y Z = i`.
+  Generalization to the multi-qubit case is given by a qubit-wise application of this relation. 
+
+* The set mod the phase forms a basis set of the space of all matrices/operators on the qubit Hilbert space.
+  Put another way, for any matrix/operator :math:`M` acting on the qubit system, there exists a set of 
+  complex coefficients :math:`\{m_i\}` such that :math:`M = \sum_i m_i P_i`, where :math:`\{P_i\}` is all
+  Pauli operators with a :math:`+1` phase. Furthermore, :math:`M` is Hermitian if and only if all these
+  coefficients are real-valued.
+
+* Any two Pauli operators either :emphasis:`commute` (:math:`PQ = QP`) or :emphasis:`anti-commute` (:math:`PQ = - QP`).
+  As a more advanced aside, this make them an ideal representation of the :emphasis:`Lie Algebra` of the unitary group
+  on the qubit Hilbert space, i.e. a way to represent arbitrary unitary transformation on the qubits via the relation,
+  :math:`U = \exp(-i H)`, where :math:`H` is a Hermitian matrix/operator and as such can be described as a real-valued
+  linear combimation of Pauli operators.
+
+* Most quantum gates are naturally described by Pauli operators. See :ref:`gates` for a description as such.
+
+* :emphasis:`Clifford gates/unitaries` are defined as those which transform Pauli operators to Pauli operators under
+  conjugation. It is for this reason that Clifford circuits are fast and easy to simulate; see :ref:`clifford`.
+
+This only scratches the surface of the importance of Pauli operators to quantum computation. 
+
+
+``iqsdk::PauliOp`` as a Pauli Operator Representation
+-----------------------------------------------------
+
+Due to their vast use in quantum computing and information, it can be useful to have a efficient representation of 
+Pauli operators and for this purpose the |IQSDK| includes the ``iqsdk::PauliOp``. The class does not use matrices
+but rather internal lists of qubit indices which represent the Pauli operator type, :math:`I`, :math:`X`, :math:`Y` or 
+:math:`Z` on that factor of the Pauli operator, what is often referred to as the :emphasis:`support` of the Pauli operator
+on that qubit. The type of support of a qubit can be returned from the member method ``iqsdk::PauliOp::getTypeOn(qbit q)`` 
+as a member of the ``enum iqsdk::PauliType = {PI, PX, PY, PZ}``. Likewise, one can retrieve the constant phase from the 
+member method ``iqsdk::PauliOp::getPhase()`` which returns a member from ``enum iqsdk::PauliPhase {PosRe, PosIm, NegRe, NegIm}``.
+
+There are several ways to construct an ``iqsdk::PauliOp``. The default constructor results in the representation of the
+identity on any number of qubits. Note, one never has to specify the number of qubits. The internal data structures use a "sparse"
+representation which expands according to the non-identity qubit support. Another constructor is
+``iqsdk::PauliOp(const std::vector<std::reference_wrapper<qbit>>&, std::string)``. The ``std::string`` argument must include 
+the characters ``'I'``, ``'X'``, ``'Y'`` or ``'Z'`` to represent support type with the addition of ``i``, ``-`` or ``-i`` at 
+the beginning to specify the desired phase if it is not +1. If the characters do not follow this pattern, the result is the same
+as the default constructor. The vector of referrences to ``qbit``'s indicates on which qubits these support types are referencing.
+Finally, there are several static "getter" functions to return representations of common Pauli operators:
+
+* ``iqsdk::PauliOp PauliOp::<X,Y,Z>(std::reference_wrapper<qbit> q)`` returns the single-qubit representation of :math:`X`, 
+  :math:`Y` or :math:`Z` supported only on the passed qubit, i.e. ``PauliOp::X(std::ref(q[0]))``.
+
+* ``iqsdk::PauliOp PauliOp::<X,Y,Z>(std::vector<std::reference_wrapper<qbit>> qs)`` returns the multi-qubit representation of all
+  :math:`X`, :math:`Y` or :math:`Z` support on the vector of passed qubits., i.e. ``PauliOp::X( { std::ref(q[0]), std::ref(q[1]) } )``.
+
+* Both of the above have an analogous function ``PauliOp::get`` with an aditional ``iqsdk::PauliType`` argument which determines 
+  the resulting support type.
+
+Once the ``iqsdk::PauliOp`` is constructed, it can be manipulated via ``iqsdk::set<X,Y,Z>On(std::ref_wrapper<qbit>)`` and
+``iqsdk::flip<X,Y,Z>On(std::ref_wrapper<qbit>)``. The first sets the Pauli operator type on the passed qubit where as the
+second, "flips" the support by essentially multiplying the operator type on the passed qubit modulo any changes to the constant
+phase.
+
+We can also perform actions between ``iqsdk::PauliOp``'s. the ``*``-operator realizes the group multiplication between the two 
+Pauli operator representations. We can also determine whether two Pauli operators commute or anti-commute via the member
+method ``iqsdk::PauliOp::antiCommutesWith(const iqsdk::PauliOp &)`` and we can compare if two Pauli operators are equal via
+the ``==``-operator and ``iqsdk::PauliOp::equalModPhase(const iqsdk::PauliOp &)`` which ignores phase difference.

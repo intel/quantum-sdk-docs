@@ -1,0 +1,142 @@
+Overview
+========
+
+The |Intel| Quantum Software Development Kit (SDK) is a high level programming
+environment that allows users to write software targeted to the |Intel| quantum
+hardware. The |IQSDK| currently provides a choice of several
+simulation backends specialized for different tasks.
+When |Intel| quantum hardware backends are available in the future,
+users will be able to seamlessly transition their simulations to execute on
+physical qubits with minimal software changes.
+
+Developing applications that run on *quantum* computers involves considerable
+challenges whose solutions we often take for granted when programming the
+*classical*
+computers we use every day. The |Intel| Quantum Computing Stack encapsulates
+these challenges as internal modules that include: quantum compilation
+(front-end and back-end), runtime mapping and scheduling, fault tolerance
+support, control electronics, and qubit management.  The |IQSDK| is
+designed to fully integrate with these modules of the |Intel| Quantum Computing
+Stack. It includes optimizations and decompositions based on the LLVM compiler
+framework targeting the |Intel| Quantum Computing Stack.
+
+
+The |IQSDK| provides an intuitive C++ based application programming
+interface (API).  This API allows users to express quantum circuit diagrams
+using C++ code.  At this point, readers new to quantum computing and
+interpreting quantum circuit diagrams may benefit from visiting the
+:ref:`Introduction to Quantum Computing <intro_to_QC>` section and the
+collection of |Tutorials|.
+
+.. :ref:`Tutorials <tutorials>`.
+
+Let's consider a simple example.  The following quantum circuit, which
+represents the famous entangled `EPR or Bell State
+<https://en.wikipedia.org/wiki/Bell_state>`_ :cite:p:`EiPR35` :cite:p:`Bell64`,
+
+
+.. figure:: img/bell-circuit.png
+    :alt: A quantum circuit on two qubits, both starting in the 0 state. The circuit consists of an H gate on qubit 0, a CNOT gate on qubits 0 and 1, and a measurement gate on qubit 0.
+    :width: 250
+    :align: center
+
+is expressed with the |IQSDK| using the following C++ code:
+
+.. raw:: latex
+
+    \clearpage
+
+.. code-block:: c++
+   :linenos:
+   :caption: Bell State Preparation & Measurement Example
+
+   /* Gate definitions and key words */
+   #include <clang/Quantum/quintrinsics.h>
+
+   /* Quantum Runtime APIs */
+   #include <quantum_full_state_simulator_backend.h>
+
+   #include <iostream>
+
+   const int num_qubits = 2;
+   /* Declare 2 qubits */
+   qbit q[num_qubits];
+
+   /* The quantum logic must be in a function with the keyword quantum_kernel */
+   /* pre-pended to the signature */
+   quantum_kernel void prep_and_meas_bell(cbit read_out) {
+       /* Prepare both qubits in the |0> state */
+       PrepZ(q[0]);
+       PrepZ(q[1]);
+
+       /* Apply a Hadamard gate to the top qubit */
+       H(q[0]);
+
+       /* Apply a Controlled-NOT gate with the top qubit as
+        * the control and the bottom qubit as the target */
+       CNOT(q[0], q[1]);
+
+       /* Measure qubit 0 */
+       MeasZ(q[0], read_out);
+   }
+
+   int main() {
+       /* Configure the simulator */
+       iqsdk::IqsConfig settings(num_qubits, "noiseless");
+       iqsdk::FullStateSimulator quantum_8086(settings);
+       if (iqsdk::QRT_ERROR_SUCCESS != quantum_8086.ready()) return 1;
+
+       /* Declare 2 measurement readouts */
+       /* Measurements are stored here as "classical bits" */
+       cbit classical_bit;
+
+       prep_and_meas_bell(classical_bit);
+
+       /* Here we can use the FullStateSimulator APIs to get data */
+       /* or we can write classical logic that interacts with our measurement */
+       /* results, as below. */
+       bool result = classical_bit;
+       if (result) {
+           std::cout << "True\n";
+       }
+       else {
+           std::cout << "False\n";
+       }
+
+       return 0;
+   }
+
+
+Ready to get started building quantum circuits?  If so, feel free to jump
+straight to the |GettingStartedGuide| to learn about
+the SDK's software requirements, installation, usage, and how to interpret the
+output.  Otherwise, it may be helpful to brush up on the basics and investigate
+the resource material found in the :ref:`Introduction to Quantum Computing
+<intro_to_QC>` section.  The collection of |Tutorials| and
+:ref:`Samples <samples>` may also be of interest.
+
+To summarize, the |IQSDK| includes:
+
+* An intuitive user interface based on the C++ programming language.
+
+* Optimizations and decompositions based on the LLVM compiler
+  framework specifically targeted at the |Intel| Quantum Computing Stack.
+
+* A full compilation flow that produces an executable using a user's selected backend.
+
+Authoring a quantum-accelerated application in the |IQSDK|
+follows the programming paradigm of other hardware accelerators.
+Quantum programs are written in a C++ programming
+environment that has been extended to allow the user to express quantum circuits
+as quantum logical operations. Depending on whether the
+user is targeting a simulation environment or qubit hardware, our quantum
+runtime library will direct the quantum workload to the appropriate backend
+during runtime execution.
+
+Currently available backends:
+
+* The :ref:`Intel Quantum Simulator (IQS) backend<iqs_backend>`, a full-state-vector qubit simulation with a complete description of the quantum state of the qubits defined.
+* The :ref:`Quantum Dot (QD) simulator <qdsim>`, a physics-based simulation of the physical qubits paired with a state-vector front-end.
+* The :ref:`Tensor Network backend <tensor_network>`, a simulator that uses tensor contractions to evaluate quantum circuits.
+* The :ref:`Clifford Circuit backend <clifford>`, a simulator that provides extremely fast results for quantum algorithms implemented using only Clifford quantum gates.
+* An interface for a :ref:`user-defined backend <custom_backend>`; with this option, users can develop their own behavior for qubit simulators.

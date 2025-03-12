@@ -1,0 +1,84 @@
+
+
+Quantum kernel function conversion
+***********************************
+
+``quantum_kernel`` functions can be converted to a quantum kernel expression using three methods. If the quantum
+kernel function is already written and one does not want to modify or copy it, one can use the
+following template function:
+
+``template<auto qk_function> QExpr qexpr::convert(Args... args)``
+
+where ``qk_function`` is any ``quantum_kernel`` function with arbitrary parameters, so long as it has a ``void`` return type. The argument type list ``Args`` must be the same as that of ``qk_function``
+and the argument list ``args`` is subject to the same constraints as those imposed on
+``qk_function`` as a ``quantum_kernel`` function (see the |DGR|). An exception is that ``qbit``
+arguments to converted ``quantum_kernel`` functions *are* allowed, so long as they are compile-time resolvable when evaluated; see
+:ref:`local_qubits`. For example:
+
+.. code-block:: C++
+
+  const int N = 4;
+  qbit qs[N];
+
+  void quantum_kernel prepAll() {
+      for (int i=0; i<N; i++) {
+          PrepZ(qs[i]);
+      }
+  }
+  void quantum_kernel bell00(qbit& a, qbit& b) {
+    PrepZ(a);
+    PrepZ(b);
+    H(a);
+    CNOT(a,b);
+  }
+
+  int main() {
+    ...
+    qexpr::eval_hold(qexpr::convert<prepAll>());
+    qexpr::eval_hold(qexpr::convert<bell00>(qs[2], qs[3]));
+    ...
+  }
+
+This kind of conversion can be useful for debugging ``quantum_kernel`` functions;
+see :ref:`debug`.
+
+Alternatively, a ``quantum_kernel`` function can be modified directly to return a quantum kernel expression by adding a return statement using the keyword ``this_as_expr``.
+For reasons outlined in :ref:`compilation-overview`, any function which returns
+``this_as_expr`` must have the added attribute ``PROTECT`` as enforced by the FLEQ compilation
+stage of IQC. For example:
+
+.. code-block:: C++
+
+  PROTECT QExpr prepAll_qexpr() {
+      for (int i=0; i<N; i++) {
+          PrepZ(qs[i]);
+      }
+      return this_as_expr;
+  }
+
+Functions returning ``this_as_expr`` are subject to the constraints of both
+``quantum_kernel`` functions and ``QExpr``-returning functions.
+It is valid to mix ``this_as_expr``
+with other ``QExpr`` expressions, but care has to be taken that the outcome ordering is as
+expected: ``this_as_expr`` represents the gate sequence present in the body
+of the function. For example, the following two functions are logically equivalent:
+
+.. code-block:: C++
+
+  PROTECT QExpr myRX1(qbit &q, double angle) {
+    H(q);
+    RZ(q, angle);
+    H(q);
+    return this_as_expr;
+  }
+
+  PROTECT QExpr myRX2(qbit &q, double angle) {
+    RZ(q, angle);
+    return qexpr::_H(q) + this_as_expr + qexpr::_H(q);
+  }
+
+The final method is to construct a new function that returns a ``QExpr`` value
+made up of the same primitive gates as the target ``quantum_kernel`` function.
+Note that this kind of translation looks slightly different for
+``quantum_kernel`` functions that use C++ loops and branches; equivalent results
+can be achieved using :ref:`branching` and :ref:`recursion`.

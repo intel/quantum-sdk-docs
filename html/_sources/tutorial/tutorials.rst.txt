@@ -1,0 +1,787 @@
+.. _ghz_tutorial:
+
+A Tour of GHZ examples
+----------------------
+
+.. todo::
+   Need to change the source for the literalincludes here to refer to the quantum-library versions of these files.
+   Leaving as-is for now to avoid breaking the docs, but it doesn't make sense to have these files in two places.
+   The issue is that those files are only guaranteed to be present when building or creating the package, not necessarily when building docs
+
+This tutorial provides some basic introduction to programming quantum algorithms
+and working with the ``FullStateSimulator`` through three implementations of the
+following circuit
+
+.. _before_ghz_circuit:
+
+.. figure:: figs/ghz_circuit.png
+    :alt: GHZ circuit
+    :align: center
+    :scale: 60%
+
+and the accompanying classical logic. The executable will manage running
+the above quantum circuit and retrieving the data in the ``FullStateSimulator``
+to confirm the instructions are producing what is intended. This circuit
+produces a
+`Greenberger-Horne-Zeilinger (GHZ) state <https://doi.org/10.1007/978-94-017-0849-4_10>`_
+for 4 qubits. In other words, the qubits will be in a super-position of two
+states, one with all qubits in the :math:`\ket{0}` state and one with all qubits
+in the :math:`\ket{1}` state, and each with equal chance of being measured.
+
+The source code for each implementation is available in the
+``quantum_examples/`` directory of the |IQSDK|.
+
+Ideal GHZ
+^^^^^^^^^
+
+To begin writing the program, get access to the quantum data types and methods
+by including the ``quintrinsics.h`` and the ``quantum_full_state_simulator_backend.h`` headers into the
+source as shown in :numref:`ideal_headers`.
+
+.. literalinclude:: code_samples/ideal_GHZ.cpp
+   :language: c++
+   :lines: 14-17
+   :lineno-start: 14
+   :linenos:
+   :caption: The headers required to use the quantum gates or ``FullStateSimulator``.
+   :name: ideal_headers
+
+As described in |GettingStartedGuide:NewAlgos|, next declare an
+array of qubits (``qbit``) in the global namespace as show in :numref:`ideal_qbit`
+
+.. literalinclude:: code_samples/ideal_GHZ.cpp
+   :language: c++
+   :lines: 19-20
+   :lineno-start: 19
+   :linenos:
+   :caption: Declaration of the ``qbit`` type variables in global namespace.
+   :name: ideal_qbit
+
+Next, implement the quantum algorithm by writing the functions or classes that
+contain the quantum logic. The ``quantum_kernel`` keyword
+should be in front of each function that builds the quantum algorithm. Shown in
+:numref:`ideal_ghz_kernel`, all the quantum instructions are placed in a single
+``quantum_kernel``. The first instruction is to initialize the state of each
+qubit by utilizing a ``for`` loop to call ``PrepZ()`` on the elements of the
+``qbit`` array. Next, apply a Hadamard gate (``H()``) on the first qubit to set
+it into a superposition. And lastly, apply Controlled Not gates (``CNOT()``) on
+pairs of qubits to create entanglement between them.
+
+.. literalinclude:: code_samples/ideal_GHZ.cpp
+   :language: c++
+   :lines: 22-32
+   :lineno-start: 22
+   :linenos:
+   :caption: ``quantum_kernel`` to prepare a Greenberger-Horne-Zeilinger state.
+   :name: ideal_ghz_kernel
+
+In the ``main`` function of the program, instantiate a ``FullStateSimulator``
+object and use its ``ready()`` method, as shown in
+:numref:`ideal_ghz_main`. Do that as
+described in |DGR:FullState|, by first
+creating an ``IqsConfig`` object, changing it to be verbose (not required), and
+then using it as an argument to the ``FullStateSimulator`` constructor. Then use
+the return of the ``ready()`` method to trigger an early exit if something is
+wrong.
+
+.. literalinclude:: code_samples/ideal_GHZ.cpp
+   :language: c++
+   :lines: 34-39
+   :lineno-start: 34
+   :linenos:
+   :caption: Setup of the FullStateSimulator. See |DGR:FullState| for a more detailed explanation.
+   :name: ideal_ghz_main
+
+Next, prepare the classical data structures for working with simulation data.
+Create a set of ``id`` values to refer to the qubits of interest as shown in
+:numref:`ideal_ghz_qbit_ref`. This is important
+because ``qbit`` variables do not necessarily specify a constant physical qubit
+in hardware; this mapping can be created and changed at various stages during
+program execution according to the compiler optimizations.
+
+.. literalinclude:: code_samples/ideal_GHZ.cpp
+   :language: c++
+   :lines: 41-45
+   :lineno-start: 41
+   :linenos:
+   :caption: Declare and fill a ``std::vector`` with references to the elements of the ``qbit`` array.
+   :name: ideal_ghz_qbit_ref
+
+Now that the backend simulator is ready, call the ``quantum_kernel``.
+
+.. literalinclude:: code_samples/ideal_GHZ.cpp
+   :language: c++
+   :lines: 47
+   :lineno-start: 47
+   :linenos:
+   :caption: Call the ``quantum_kernel``.
+   :name: ideal_ghz_run_kernel
+
+After this line during execution, the ``FullStateSimulator`` contains the
+state-vector data describing the qubits. Although there are facilities to
+conveniently specify every possible state for a set of qubits, this could be an
+overwhelming amount of data. Where possible, use the available constructors
+described in |API| to
+configure a ``QssIndex`` object to refer to only the states of interest and
+store them in a vector. In :numref:`ideal_ghz_qssindex`, two explicit strings
+formatted for 4 qubits are used to specify the two states.
+
+.. literalinclude:: code_samples/ideal_GHZ.cpp
+   :language: c++
+   :lines: 49-55
+   :lineno-start: 49
+   :linenos:
+   :caption: Specifying the states of interest; this will be an argument used to collect data from the simulation.
+   :name: ideal_ghz_qssindex
+
+Now access the probabilities for these two states through
+``FullStateSimulator``'s ``getProbabilities()`` method. Remember that ideally
+the GHZ state would only be in :math:`\ket{0000}` or :math:`\ket{1111}`. So for
+this simulated circuit, when summing the probabilities of measuring in either
+:math:`\ket{0000}` or :math:`\ket{1111}`, the sum should be 1.0.
+
+.. literalinclude:: code_samples/ideal_GHZ.cpp
+   :language: c++
+   :lines: 57-65
+   :lineno-start: 57
+   :linenos:
+   :caption: The classical logic that checks a property of the state in the qubit register. This gets quantum results from simulation data at runtime.
+   :name: ideal_ghz_sim_data
+
+Alternatively, display a formatted summary of the states to the console output with
+``displayProbabilities()`` or ``displayAmplitudes()``.
+
+.. literalinclude:: code_samples/ideal_GHZ.cpp
+   :language: c++
+   :lines: 66
+   :lineno-start: 66
+   :linenos:
+   :caption: Generate a quick, formatted display of the probabilities for the two states of interest printed to the console.
+   :name: ideal_ghz_display
+
+This program can be compiled with the default options. Configuring the
+qubit simulation in the |Intel| Quantum Simulator creates a set of qubits with no
+limitation on their connectivity, in other words two-qubit operations (gates)
+can be applied between any pair of qubits.
+
+.. code-block:: console
+
+    $  <path to Intel Quantum SDK>/intel-quantum-compiler ideal_GHZ.cpp
+
+Running the executable produces a line describing each quantum instruction
+because the verbose option was set to true when configuring the
+``FullStateSimulator``. That is followed by the line showing that
+``total_probability`` is equal to 1 and the summary produced by
+``displayProbabilities()``.
+
+.. code-block:: console
+
+    $ ./ideal_GHZ
+
+    - Run noiseless simulation (verbose mode)
+    Instruction #4 : ROTXY(phi = 1.5707, gamma = 1.57075)  on phys Q 0
+    Instruction #5 : ROTXY(phi = 0, gamma = 3.14154)  on phys Q 0
+    Instruction #6 : ROTXY(phi = 4.71229, gamma = 1.57075)  on phys Q 1
+    Instruction #7 : CPHASE(gamma = 3.1415) on phys Q0 and phys Q1
+    Instruction #8 : ROTXY(phi = 1.5707, gamma = 1.57075)  on phys Q 1
+    Instruction #9 : ROTXY(phi = 4.71229, gamma = 1.57075)  on phys Q 2
+    Instruction #10 : CPHASE(gamma = 3.1415) on phys Q1 and phys Q2
+    Instruction #11 : ROTXY(phi = 1.5707, gamma = 1.57075)  on phys Q 2
+    Instruction #12 : ROTXY(phi = 4.71229, gamma = 1.57075)  on phys Q 3
+    Instruction #13 : CPHASE(gamma = 3.1415) on phys Q2 and phys Q3
+    Instruction #14 : ROTXY(phi = 1.5707, gamma = 1.57075)  on phys Q 3
+    Sum of probability to measure fully entangled state: 1
+    Printing probability map of size 2
+    |0000>  : 0.5                           |1111>  : 0.5
+
+The complete code is available as ``ideal_GHZ.cpp`` in the ``quantum_examples/``
+directory of the |IQSDK|.
+
+Sampled GHZ
+^^^^^^^^^^^
+
+As discussed in |DGR:MeasFullState|,
+the state-vector probabilities that the above program uses are not data that
+quantum hardware is capable of returning. Consider the hypothetical scenario in
+which you now need to know how many times the quantum circuit must be run and
+evaluated in order to find the probability with the desired numerical accuracy.
+This can be done efficiently by using the simulation data.
+
+Only the non-``quantum_kernel`` sections of the ``ideal_GHZ.cpp`` program need
+changed to accomplish this. This can be done by using a different ``FullStateSimulator``
+method after calling the ``quantum_kernel``, as shown in :numref:`sample_ghz_getSamples`
+
+.. literalinclude:: code_samples/sample_GHZ.cpp
+   :language: c++
+   :lines: 69-72
+   :lineno-start: 69
+   :linenos:
+   :caption:
+   :name: sample_ghz_getSamples
+
+Each ``std::vector<bool>`` represents the observation of a state, each
+individual value represents the outcome of that qubit as arranged in the
+``qids`` vector. The ``FullStateSimulator`` has a helper method to conveniently
+calculate the number of times a given state appears in an ensemble of
+observations.
+
+.. literalinclude:: code_samples/sample_GHZ.cpp
+   :language: c++
+   :lines: 74-76
+   :lineno-start: 74
+   :linenos:
+   :caption:
+   :name: sample_ghz_display
+
+From this ``QssMap``, calculate the estimate of the probability of observing
+each state.
+
+.. literalinclude:: code_samples/sample_GHZ.cpp
+   :language: c++
+   :lines: 78-86
+   :lineno-start: 78
+   :linenos:
+   :caption: The classical logic inspecting the results of sampling many simulated measurements.
+   :name: sample_ghz_classical
+
+This program can be compiled with the same command as the previous program.
+
+.. code-block:: console
+
+    $ <path to Intel Quantum SDK>/intel-quantum-compiler sample_GHZ.cpp
+
+In addition to the same output from ``ideal_GHZ.cpp``, the result
+of the ``samplesToHistogram()`` method is also printed out:
+
+.. code-block:: console
+
+    Using 1000 samples, the distribution of states is:
+    |0000> : 0.496
+    |1111> : 0.504
+
+Because the ``IqsConfig`` used the default setting of a random seed (by not
+specifying one), this simulation will produce a different sequence of samples on
+subsequent executions and thus a slightly different estimate of the probability
+of observing each state.
+
+The complete code is available as ``sample_GHZ.cpp`` in the
+``quantum_examples/`` directory of the |IQSDK|.
+
+GHZ state on Quantum Dot Simulator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+It takes the change of only a few lines of code to target another backend, as
+you can see by comparing ``sample_GHZ.cpp`` and ``qd_GHZ.cpp``
+(e.g. using the ``diff`` CLI tool). As described in |DGR:QDSim|,
+the Quantum Dot Simulator (``QD_Sim``) adds to the state vector simulation by
+including details from the control signals that interact with quantum dot
+qubits. This creates additional computational overhead compared to the
+|Intel| Quantum Simulator. The first change in
+this program is to reduce the size of the circuit to just a pair of qubits so
+the execution stays around a few seconds.
+
+``QD_Sim`` treats running sequential ``quantum_kernels`` and
+measurement gates differently than the |Intel| Quantum Simulator (see
+|DGR:QDSimImportant|). Although some
+programs could require alteration of their logic, the above program's
+``quantum_kernel`` and simulator usage is compatible with either backend. To
+change the qubit simulator, instead of the ``IqsConfig`` object switch to
+a ``DeviceConfig`` constructed with the argument ``"QD_SIM"`` as shown in
+:numref:`qd_ghz_config` (note the all capitals for the argument string).
+
+.. literalinclude:: code_samples/qd_GHZ.cpp
+   :language: c++
+   :lines: 34-36
+   :lineno-start: 34
+   :linenos:
+   :caption: Configuring the ``FullStateSimulator`` to use the Quantum Dot Simulator backend.
+   :name: qd_ghz_config
+
+With this change of backend qubit simulation, the program must now be compiled
+with non-default options. The file ``intel-quantum-sdk-QDSIM.json``
+points to a file describing a 6-qubit linear array. Use the ``-c`` flag to give
+the file's location to the compiler, and specify placement and scheduling
+options with ``-p`` and ``-S``.
+
+.. code-block:: console
+
+    $ <path to Intel Quantum SDK>/intel-quantum-compiler -c <path to Intel Quantum SDK>/intel-quantum-sdk-QDSIM.json -p trivial -S greedy qd_GHZ.cpp
+
+``QD_Sim`` produces its own output in addition to the output
+explicitly designed into the behavior of the program.
+
+.. code-block:: console
+
+    $ ./qd_GHZ.cpp
+
+    1688766838 time dependent evolution start time
+    sweep progress: calculation point=0 0%
+    sweep progress: calculation point=18199 10%
+    sweep progress: calculation point=36398 20%
+    sweep progress: calculation point=54597 30%
+    sweep progress: calculation point=72796 40%
+    sweep progress: calculation point=90994 50%
+    sweep progress: calculation point=109193 60%
+    sweep progress: calculation point=127392 70%
+    sweep progress: calculation point=145591 80%
+    sweep progress: calculation point=163790 90%
+    Time evolution took 2.568378 seconds
+    Fri Jul  7 14:54:01 2023
+    1688766841 time dependent evolution end time
+    Sum of probability to measure fully entangled state: 0.999983
+    Printing probability map of size 2
+    |00>    : 0.4998                        |11>    : 0.5002
+
+    Using 1000 samples, the distribution of states is:
+    |00> : 0.519
+    |11> : 0.481
+
+The output starts with the backend's simulation progress, followed by the
+familiar output in the program's implementation. The probabilities
+reported by the ``FullStateSimulator`` are slightly different from the exact
+:math:`0.50` because the Quantum Dot Simulator includes the simulation of the
+electronics controlling the quantum dots.
+
+The complete code is available as ``qd_GHZ.cpp`` in the ``quantum_examples/``
+directory of the |IQSDK|.
+
+.. _release_quantum_state_example:
+
+Using ``release_quantum_state()``
+---------------------------------
+
+Using ``release_quantum_state()`` to indicate the intention to effectively
+abandon operating on the qubits can lead to greater reduction of the total
+operations when combined with ``-O1`` optimization. Inconsequential operations
+can be removed, and in some cases this can include a measurement operation.
+Consider the following sample code. The first three ``quantum_kernel`` blocks
+build up the preparation and measurement of a state with three angles as input
+parameters.
+
+.. code-block:: c++
+
+   #include <clang/Quantum/quintrinsics.h>
+   #include <quantum_full_state_simulator_backend.h>
+
+   qbit q[2];
+
+   quantum_kernel void PrepAll() {
+     PrepZ(q[0]);
+     PrepZ(q[1]);
+   }
+
+   //nothing special about this ansatz
+   quantum_kernel void Ansatz_Heisenberg (double angle0, double angle1, double angle2) {
+     RX(q[0], angle0);
+     RY(q[1], angle1);
+     S(q[1]);
+     CNOT(q[0], q[1]);
+     RZ(q[1], angle2);
+     CNOT(q[0], q[1]);
+     Sdag(q[1]);
+   }
+
+   quantum_kernel double Measure_Heisenberg(){
+     cbit c[3];
+
+     CNOT(q[0], q[1]);
+     MeasX(q[0], c[0]); // XX term
+     MeasZ(q[1], c[1]); // ZZ term
+     CZ(q[0], q[1]);
+     MeasX(q[0], c[2]); //-YY term
+     CZ(q[0], q[1]);
+     CNOT(q[0], q[1]);
+
+     release_quantum_state();
+
+     return (1. -2. * (double) c[0]) + (1. -2. * (double) c[1]) + (1. + 2. * (double) c[2]);
+
+   }
+
+
+The next ``quantum_kernel`` function calls the prior three blocks. This fourth function
+contains the ``release_quantum_state()`` call from above.
+The ``main()`` function calls ``VQE_Heisenberg()`` after
+setting up a ``FullStateSimulator``.
+
+.. code-block:: c++
+
+   quantum_kernel double VQE_Heisenberg(double angle0, double angle1, double angle2) {
+     PrepAll();
+     Ansatz_Heisenberg (angle0, angle1, angle2);
+
+     return Measure_Heisenberg();  //note this QK will inherit the release for this function
+   }
+
+   int main(){
+     iqsdk::IqsConfig settings(2, "noiseless");
+     iqsdk::FullStateSimulator quantum_8086(settings);
+     if (iqsdk::QRT_ERROR_SUCCESS != quantum_8086.ready())
+       return 1;
+
+     double debug1 = 1.570796;
+     double debug2 = debug1 / 2;
+     double debug3 = debug2 / 2;
+     VQE_Heisenberg(debug1, debug2, debug3);
+   }
+
+If this is compiled with ``-O0`` flag and no optimization is performed, we
+expect each of the 3 measurement operations (``MeasX``, ``MeasZ``, ``MeasX``) to
+be called. Looking at the resulting ``.qs`` file confirms this:
+
+.. literalinclude:: code_samples/release_O0.qs
+   :emphasize-lines: 22,24,27
+
+However, compiling with ``-O1`` will cause the optimizer to remove operations.
+Here in addition to combining and removing gates, the optimizer will remove a
+measurement operation because its outcome can be deduced from the other two
+measurements' outcomes. The ``cbit`` used to store the now-missing measurement
+outcome will have its value correctly set by the Quantum Runtime.
+
+.. literalinclude:: code_samples/release_O1.qs
+   :emphasize-lines: 13,15
+
+Writing Variational Algorithms
+------------------------------
+
+Introduction
+^^^^^^^^^^^^
+
+Variational algorithms are considered to be one of the most promising
+applications to allow quantum advantage using near-term systems :cite:p:`CABB21`.
+The |IQSDK| has many features that are geared for coding variational
+algorithms with a focus on performance. The Hybrid Quantum Classical
+Library (HQCL) :cite:p:`HQCL23` is a collection of tools that will help a user
+increase productivity when programming variational algorithms. This example
+combines these tools with ``dlib`` (a popular C++ library for solving
+optimization problems :cite:p:`DLIB23` ), to applying the variational algorithm to
+the generation of thermofield double (TFD) states :cite:p:`PrMa20` :cite:p:`SPKR21`.
+Previous implementations :cite:p:`KWPH22` included the latter workload with a
+hard-coded version of the cost function expression, which was pre-calculated.
+:numref:`ansatz` (reproduced from :cite:p:`KWPH22`) shows the full circuit that is
+used for the variational algorithm execution.
+
+.. figure:: figs/tfd_ansatz.png
+   :name: ansatz
+   :width: 75%
+
+   The quantum circuit for single-step TFD state generation. Stages:(I) preparing infinite temperature TFD state, (II) Intra-system :math:`R_X` operation, (III) Intra-system :math:`ZZ` operation, (IV) Inter-system :math:`XX` operation, (V) Inter-system :math:`ZZ` operation. A and B represent the two subsystems, each containing :math:`N_\textrm{sub}` qubits. (reproduced from :cite:p:`KWPH22`)
+
+In this implementation, HQCL will symbolically construct the cost function
+expression, and use qubit-wise commutation (QWC) :cite:p:`YeVI20` to
+group terms and reduce the number of circuit repetitions required to calculate
+the cost function. HQCL will also automatically populate the necessary mapping
+angles at runtime, to facilitate measurements of the system along different
+axes.
+
+The classical optimization in this workload will be handled using the ``dlib``
+C++
+library. The ``dlib`` library contains powerful functions performing local as
+well
+as global optimizations. Here, the ``find_min_bobyqa`` function for the
+minimization of the cost function performs quite well for the chosen workload.
+The choice of the optimization technique can heavily influence the number of
+iterations required for convergence of certain variational algorithms. The
+Intel Quantum Simulator :cite:p:`GHBS20` will be used as the backend in this
+example.
+
+Code
+^^^^
+
+Preamble
+""""""""
+
+In the preamble of the source file shown in :numref:`TFD_head` below, the
+header files for the
+IQSDK, ``dlib``, and HQCL are included first.
+
+.. literalinclude:: code_samples/tfd.cpp
+   :language: c++
+   :lines: 1-32
+   :linenos:
+   :caption: The preamble of the source file.
+   :name: TFD_head
+
+A data structure within ``dlib`` is defined (using a ``typedef``) in line 31
+for convenience in passing the set of parameters into the optimization loop.
+This algorithm will use four variational parameters and two
+mapping angles per qubit (a total of eight).
+
+Construction of the Ansatz
+""""""""""""""""""""""""""
+
+:numref:`TFD_terms` contains the operations corresponding to the stages II,
+III, IV, and V from :numref:`ansatz` (stage I will be discussed later in
+:numref:`TFD_aux_qkernels`). These are the four core stages that define the operations for the
+TFD algorithm. A future version of the IQSDK will support ``quantum kernel
+expressions`` which can be used to conveniently construct quantum kernels in a
+modular way :cite:p:`PaSM23` :cite:p:`Schm23`.
+
+.. literalinclude:: code_samples/tfd.cpp
+   :language: c++
+   :lines: 34-83
+   :lineno-start: 34
+   :linenos:
+   :caption: The core set of operations to implement the TFD algorithm.
+   :name: TFD_terms
+
+There are three supporting quantum kernels that are used (see
+:numref:`TFD_aux_qkernels`), in
+addition to the core set of operations. ``PrepZAll()`` is used to prepare all
+the qubits in the ground state at the beginning of every iteration.
+``BellPrep()`` is used to prepare Bell pairs between corresponding qubits
+of the two subsystems, effectively resulting in the infinite temperature
+TFD state. The ``DynamicMapping()`` quantum kernel is used to hold the mapping
+operations that HQCL will implement for basis changes during runtime.
+
+.. literalinclude:: code_samples/tfd.cpp
+   :language: c++
+   :lines: 86-108
+   :lineno-start: 86
+   :linenos:
+   :caption: The supporting quantum kernels to implement the TFD algorithm.
+   :name: TFD_aux_qkernels
+
+The supporting quantum kernels (:numref:`TFD_aux_qkernels`) and the core TFD
+quantum kernel
+(:numref:`TFD_terms`) are combined to form the full quantum circuit in
+:numref:`TFD_full`.
+
+.. literalinclude:: code_samples/tfd.cpp
+   :language: c++
+   :lines: 110-115
+   :lineno-start: 110
+   :linenos:
+   :caption: The full TFD quantum kernel to run during optimization loop.
+   :name: TFD_full
+
+Functions for Constructing the Cost Expression and the Cost Calculation
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+.. literalinclude:: code_samples/tfd.cpp
+   :language: c++
+   :lines: 117-164
+   :lineno-start: 117
+   :linenos:
+   :caption: Construction of the full symbolic operator for the cost function expression.
+   :name: TFD_constructFullSymbOp
+
+Programmatic construction of the cost expression is necessary for HQCL to form
+the QWC groups, to generate the necessary circuits to run per optimization
+iteration, and to correctly evaluate the cost at each iteration. In
+:numref:`TFD_constructFullSymbOp`, we generate symbolic terms (``sym_term``) for
+every expression
+present, and add it to the full symbolic operator ``symb_op``. The full cost
+expression to be coded is given by
+
+.. math::
+   C(\beta) &= \sum_{i=1}^{N_\textrm{sub}} {X_i^A} +\sum_{i=1}^{N_\textrm{sub}} {X_i^B} + \sum_{i=1}^{N_\textrm{sub}} {Z_i^A Z_{i+1}^A} + \sum_{i=1}^{N_\textrm{sub}} {Z_i^B Z_{i+1}^B} \\
+            &- \beta^{-1} \left( \sum_{i=1}^{N_\textrm{sub}} {X_i^A X_i^B} + \sum_{i=1}^{N_\textrm{sub}} {Z_i^A Z_i^B} \right)
+
+where the subscript represents the qubit index and the superscript represents
+the subsystem the qubit belongs to (A or B) :cite:p:`KWPH22`.
+
+.. literalinclude:: code_samples/tfd.cpp
+   :language: c++
+   :lines: 166-197
+   :lineno-start: 166
+   :linenos:
+   :caption: A function to calculate the cost at each iteration during optimization.
+   :name: TFD_run_qkernel
+
+The function ``runQuantumKernel`` encompasses all the functionality that is
+required to calculate the cost, when running a single optimization iteration
+with ``dlib``. It takes the already formulated set of QWC groups, and run
+the ansatz with the same set of variational parameters but with different basis
+mapping parameters (each time mapping from the different bases, as demanded by
+the cost expression). The full cost is then returned for consideration by the
+classical optimization loop within ``dlib``.
+
+.. literalinclude:: code_samples/tfd.cpp
+   :language: c++
+   :lines: 199-244
+   :lineno-start: 199
+   :linenos:
+   :caption: The ``main`` function.
+   :name: TFD_main
+
+The main function shown in :numref:`TFD_main` will initialize the IQSDK backend,
+construct the cost
+expression, and kick off the optimization. The lambda function
+``ansatz_run_lambda`` is used since ``dlib`` requires the function used during
+optimization to take a column vector as an input and to return a double. This
+function essentially wraps the previously-defined ``runQuantumKernel`` function.
+
+Results
+^^^^^^^
+
+The execution of the above program can be tracked with a log of the angles and
+the cost function at each iteration. The summarized results are shown in
+:numref:`anglesPlot` and :numref:`costPlot`.
+These plots demonstrate that 95 steps are required for convergence to the requested
+tolerance level.
+
+.. _before_anglesPlot:
+
+.. figure:: figs/anglesPlot.png
+   :name: anglesPlot
+   :width: 75%
+
+   Convergence behavior for the four variational angles (see :cite:p:`PrMa20` :cite:p:`SPKR21` for details on the notation).
+
+.. figure:: figs/costPlot.png
+   :name: costPlot
+   :width: 75%
+
+   Convergence of the evaluated cost during the variational algorithm execution.
+
+
+Using ``qbit`` variables
+------------------------------
+
+``qbit`` is the data type for representing qubits. Variables of ``qbit`` type can be declared in the global
+namespace or locally within a ``quantum_kernel`` function. Similar to locally declared classical C++ variables,
+locally declared ``qbit`` variables' scope is limited to the ``quantum_kernel`` function they are declared in.
+
+When a locally declared ``qbit`` variable goes out of scope, the quantum state is not automatically released.
+This means in subsequent computation, the physical qubit associated to this variable might be reassgined to a different ``qbit`` while
+still holding the now out-of-scope variable's quantum state. Without proper handling, this could lead to unreliable
+results. One option is to use ``release_quantum_state()`` at the end of the ``quantum_kernel`` in which local ``qbit``
+variables are declared. See |DGR:Qbit|. Examples can be found below:
+
+.. code-block:: c++
+
+   qbit global_qbit;
+
+   void quantum_kernel exampleReleaseOnMeasurement(){
+      qbit local_3[3];     // declare a quantum array with 3 qbits
+
+      // Prep the local qbit variables
+      PrepZ(local_3[0]);
+      PrepZ(local_3[1]);
+      PrepZ(local_3[2]);
+
+      RY(local_3[0], 0.5);
+      RY(local_3[1], 0.5);
+      RY(local_3[2], 0.5);
+
+      // Measuring the qbit variables
+      MeasX(local_3[0]);
+      MeasX(local_3[1]);
+      MeasX(local_3[2]);
+      // After the measurements, the physical qubits assigned to local_3 are released
+   }
+
+   void quantum_kernel exampleExplicitRelease() {
+      qbit q0;
+      qbit q1;
+
+      PrepZ(q0);
+      PrepZ(q1);
+
+      RZ(q0);
+      RZ(q1);
+      RZ(global_qbit);
+
+      release_quantum_state();
+      // After the call to release_quantum_state(), all qubits, including the global qbit,
+      // are released from this point onwards and the physical qubits can be
+      // reused in a new ``quantum_kernel``
+   }
+
+   void quantum_kernel badExampleNoRelease() {
+      // In this example, the local qubits are not properly released at the end of the kernel
+      qbit q0;
+      qbit q1;
+
+      PrepZ(q0);
+      PrepZ(q1);
+
+      RZ(q0);
+      RZ(q1);
+   }
+
+   void quantum_kernel badExample() {
+
+      // This program will not cause a compilation error
+      // However the computed results might be incorrect
+      // as the second call to badExampleNoRelease() might be using the same
+      // physical qubits which are in unknown states
+      badExampleNoRelease();
+      badExampleNoRelease();
+   }
+
+
+
+``qbit`` variables can be passed as arguments of ``quantum_kernel`` functions with the exception of top level
+``quantum_kernel`` functions, which do not take quantum-type parameters.
+``qbit`` variables must be passed by reference.
+If passed by value, a local copy of the input ``qbit`` variables will be made,
+just as for classical variables.
+Since quantum states cannot be copied, passing a ``qbit`` by value has no physical
+meaning and will cause an error when compiling, .
+Examples of how to pass ``qbit`` variables as inputs to
+``quantum_kernel`` functions are shown below.
+
+.. code-block:: c++
+
+   qbit global_qbit;
+
+   // Pass by pointer - accepted behaviour
+   void quantum_kernel passQubitArrayByPtr(qbit qubit_array[], int num_ele){
+      for (int i=0; i < num_ele; i++)
+         H(qubit_array[i]);
+   }
+
+   // Pass by pointer - accepted behaviour
+   void quantum_kernel passQubitArrayByPtr2(qbit *qubit_array, int num_ele){
+      for (int i=0; i < num_ele; i++)
+         H(qubit_array[i]);
+   }
+
+   // Pass by reference - accepted behaviour
+   void quantum_kernel passQubitByRef(qbit &q){
+      Z(q);
+   }
+
+   // Pass by value - will result in a compilation error
+   void quantum_kernel passQubitByValue(qbit q){
+      Z(q);
+   }
+
+   // Note that the top level quantum_kernel does not take quantum arguments
+   void quantum_kernel top_level_kernel() {
+      qbit qubit_array[3];
+
+      passQubitArrayByPtr(qubit_array, 3);
+      passQubitArrayByPtr2(qubit_array, 3);
+      passQubitByRef(global_qbit);
+      passQubitByValue(global_qbit);   // Pass by value - will result in a compilation error
+   }
+
+
+The minimum number of physical qubits required in a program is the sum of all global ``qbit`` variables plus the
+maximum width of local ``qbit`` variables. In the following example, the minimum number of physical qubits needed
+is 8, comprising the 3 global ``qbit`` and the 5 ``qbit`` inside ``circuitWidth5``.
+
+.. code-block:: c++
+
+   qbit global_qbit[3];
+
+   void quantum_kernel circuitWidth2(){
+      qbit array[2];
+   }
+
+   void quantum_kernel circuitWidth5(){
+      qbit array[5];
+   }
+
+   void quantum_kernel circuits(){
+      circuitWidth2();
+      circuitWidth5();
+   }
+
+When compiling with a configuration file, the ``qbit`` variables will be mapped to physical qubits using
+the placement method set by the ``-p`` flag. All ``qbit`` variables, both global and locally declared, will
+be mapped using the same method, with the exception that only global ``qbit`` variables can be mapped by
+user defined mapping. See |DGR:Placement|.

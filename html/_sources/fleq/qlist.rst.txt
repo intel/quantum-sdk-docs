@@ -1,0 +1,104 @@
+
+.. _qlist:
+
+``QList``
+*********
+
+A quantum list of type ``qlist::QList`` is an immutable compile-time list for the ``qbit`` type. It is a
+C++ class that conceptually can be thought of as list of references to existing ``qbit``
+declarations. A ``QList`` can be constructed around a separate ``qbit`` array by
+passing its pointer to the ``QList`` constructor. For convenience, both the ``qbit`` declaration
+and creation of a ``QList`` from it are provided by a single call to the ``listable`` macro:
+
+.. code-block:: C++
+
+  #include <clang/Quantum/qlist.h>
+  const int N = 5;
+
+  qbit listable(qs, N);
+  // equivalent to:
+  //
+  // qbit qs_raw[N];
+  // const qlist::QList qs(qs_raw);
+
+Note that with the use of ``listable(<name>, N)``, ``<name>`` is a variable of type ``QList``, and the underlying ``qbit`` array has the
+name ``<name>_raw``. During compilation, for example during circuit printing, the variable is displayed as ``<name>_raw``. See :ref:`limitations`.
+
+A custom qubit placement as described in |DGR:Placement| can also be specified via the ``listable`` macro.
+A custom placement list using parenthesis can be passed as a third argument:
+
+.. code-block:: C++
+
+  #include <clang/Quantum/qlist.h>
+  const int N = 5;
+
+  qbit listable(qs, N, (1, 3, 5, 12, 0));
+  // equivalent to:
+  //
+  // qbit qs_raw[N] = {1, 3, 5, 12, 0};
+  // const qlist::QList qs(qs_raw);
+
+The same limitations on custom qubit placement apply for this macro. Most notably, custom placement
+can only be specified for global qubits.
+
+The ``qlist.h`` library provides several operations on qubit lists.
+
+``unsigned int qlist::QList::size()``
+
+  Returns the size of a ``QList``. Compile-time resolvable.
+
+``qbit& qlist::QList::operator[](unsigned long i)``
+
+  Index into a ``QList`` via operator overload, i.e. ``qs[i]``. Compile-time resolvable.
+
+``qlist::QList qlist::operator+(QList q1, QList q2)``
+
+  Concatenate two ``QList`` values together in sequence, i.e. ``qs1 + qs2``. Compile-time resolvable.
+
+
+If a user needs a ``QList`` at runtime, rather than at compile-time, the following
+function is provided:
+
+``std::vector<std::reference_wrapper<qbit>> qlist::to_ref_wrappers(QList qs)``
+
+  Convert a ``QList`` into a vector of reference wrappers, used to interact with backend simulators as detailed in the |DGR|. Note however that the ``QList`` argument must be compile-time resolvable and that the returned reference wrappers are available at runtime only.
+
+Qubit lists can also be sliced into sublists, which can then be joined together in different orders via ``+``.
+
+``qlist::QList qlist::QList::operator()(unsigned long start, unsigned long end)``
+
+  Returns the slice of a ``QList`` starting at index ``start`` and ending at index ``end-1``;
+  i.e. ``qs(start, end)`` returns the slice of ``qs`` from ``start`` inclusively to ``end`` exclusively.
+
+``qlist::QList qlist::operator>>(QList qs, unsigned long i)``
+
+  Returns the slice of ``qs`` shifted to the right by offset ``i``
+  i.e. ``qs >> i == qs(i, qs.size())``.
+
+``qlist::QList qlist::operator<<(QList qs, unsigned long i)``
+
+  Returns the slice of ``qs`` shifted to the left by offset ``i``
+  i.e. ``qs << i == qs(0, qs.size()-i)``
+
+``qlist::QList qlist::operator+(QList qs, unsigned long i)``
+
+  Returns the slice of ``qs`` shifted to the right by offset ``i``
+  i.e. ``qs + i == qs(i, qs.size())``.
+
+``qlist::QList qlist::operator++()``
+
+  Returns the slice of ``qs`` shifted to the right by 1
+  i.e. ``++qs == qs(1, qs.size())``.
+
+If a single qubit ``q`` is passed to a function that expects a ``QList``, that
+qubit will be automatically converted to a ``QList`` of length 1 containing
+``q``. For example:
+
+.. code-block:: C++
+
+  QExpr foo(qlist::QList qs) { ... }
+  int main() {
+    ...
+    qbit q;
+    eval_hold(foo(q)); // Equivalent to eval_hold(foo(QList(q)));
+  }

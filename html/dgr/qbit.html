@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Local qbit Variables &#8212; Intel® Quantum SDK API v1.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=45183d27"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="local-qbit-variables">
+<h1>Local <code class="docutils literal notranslate"><span class="pre">qbit</span></code> Variables<a class="headerlink" href="#local-qbit-variables" title="Link to this heading">¶</a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables can be declared globally or locally. When the compiler maps the program qubits
+to physical qubits, each <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variable will be assigned to a physical qubit.
+Since the compiler cannot guarantee the state that a local <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variable is in, local <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables
+must be initialized using <code class="docutils literal notranslate"><span class="pre">PrepX</span></code>, <code class="docutils literal notranslate"><span class="pre">PrepY</span></code>, or <code class="docutils literal notranslate"><span class="pre">PrepZ</span></code> before being used. At the end of
+the <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code>, the local <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables must be released. This can be achieved
+through measurements or <code class="docutils literal notranslate"><span class="pre">release_quantum_state()</span></code>.</p>
+<p>Note that if using <code class="docutils literal notranslate"><span class="pre">release_quantum_state()</span></code>, the quantum states are unspecified after the
+function call (see <a class="reference internal" href="extensions.html#extensions"><span class="std std-ref">Language Extensions</span></a>). Without releasing the quantum states,
+the physical qubits assigned to the local <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables might be assigned to other local
+<code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables in a new <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> function while still holding the quantum states
+of the out-of-scope variables. The out-of-scope variables’ physical qubits will not be assigned
+to unreleased global <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables, however.</p>
+<p>In the following example, a local <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variable is declared, initialized, and measured.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">quantum_kernel</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">kernel</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="n">qbit</span><span class="w"> </span><span class="n">q</span><span class="p">;</span>
+<span class="w">   </span><span class="kt">bool</span><span class="w"> </span><span class="n">b</span><span class="p">;</span><span class="w">  </span><span class="c1">// can also be of type cbit</span>
+
+<span class="w">   </span><span class="n">PrepZ</span><span class="p">(</span><span class="n">q</span><span class="p">);</span><span class="w">    </span><span class="c1">// prepare the qbit variable before applying gates</span>
+<span class="w">   </span><span class="n">H</span><span class="p">(</span><span class="n">q</span><span class="p">);</span>
+
+<span class="w">   </span><span class="n">MeasZ</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">);</span><span class="w">  </span><span class="c1">// release the qbit variable at the end of the quantum_kernel</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If local <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables are entangled with global <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables, the entanglement persists
+after the local <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables go out of scope. The user must insert gates needed to disentangle the
+local <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables from the global ones before releasing the local variables’ quantum
+states.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">qbit</span><span class="w"> </span><span class="n">global</span><span class="p">;</span>
+
+<span class="n">quantum_kernel</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">errorExampleEntangledQubits</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="n">qbit</span><span class="w"> </span><span class="n">local</span><span class="p">;</span>
+
+<span class="w">   </span><span class="n">PrepZ</span><span class="p">(</span><span class="n">local</span><span class="p">);</span><span class="w">    </span><span class="c1">// Prep the qbit variable before applying gates</span>
+<span class="w">   </span><span class="n">H</span><span class="p">(</span><span class="n">local</span><span class="p">);</span>
+<span class="w">   </span><span class="n">CNOT</span><span class="p">(</span><span class="n">local</span><span class="p">,</span><span class="w"> </span><span class="n">global</span><span class="p">);</span>
+
+<span class="w">   </span><span class="c1">// After local goes out of scope, the physical qubit it was assigned to</span>
+<span class="w">   </span><span class="c1">// is still entangled with global</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The recommended best practice with regards to
+local <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables is therefore to prep them before they are used and insert
+gates to undo the entanglement between local and global <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables before releasing the quantum
+states at the end of <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions.</p>
+<p>For information on how to use local <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables with quantum kernel
+expressions and FLEQ, refer to FLEQ Guide and Reference (Local qubits).</p>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Intel® Quantum SDK API</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="index.html">Developers Guide and Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fleq/index.html">FLEQ Guide and Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../citations.html">Citations</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024 Intel Corporation. All Rights Reserved.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/dgr/qbit.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

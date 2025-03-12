@@ -1,0 +1,119 @@
+
+.. _classical:
+
+Ordering of classical and quantum operations
+---------------------------------------------
+
+Like a ``quantum_kernel`` function, a quantum kernel expression is not just the quantum logic as
+encapsulated in QBBs. It also includes the interface between the QBBs and and the classical processes that
+surround them. Examples of classical processes include generating dynamic angles to be passed to gates
+and retrieving and analyzing measurement results. As such, the FLEQ compilation stage of IQC
+must aggregate and rearrange such classical operators as encapsulated in the constituent ``QExpr``-returning
+functions. FLEQ compilation recognizes three sections for each such function: the pre-quantum section, the
+quantum section and the post-quantum section. Note, the post-quantum section is trivial except for cases
+where the function is converted from a ``quantum_kernel`` function or the returned value is dependent
+on a call to ``this_as_expr``. In both cases, the post-quantum section contains all classical logic that
+follows the last imperative gate call.
+
+In the absence of any ``bind`` calls, the pre-quantum sections are aggregated so as to be executed on the
+classical processor before the QBB is issued to the quantum processor in a topologically sorted order;
+see :ref:`compilation-overview`. Likewise, the post-sections are aggregated so as to be executed on
+the classical processor in the analogous topologically sorted order. In the case of unresolved branching,
+classical logic associated with a given branch will only be executed in that branch. For example,
+
+.. code-block:: C++
+
+  qbit q;
+
+  PROTECT QExpr true_branch() {
+    double ang = compute_angle_true();
+    return _RX(q, ang);
+  }
+
+  PROTECT QExpr false_branch() {
+    double ang = compute_angle_false();
+    return _RX(q, ang);
+  }
+
+  QExpr foo(bool b) {
+    return cIf(b, true_branch(), false_branch());
+  }
+
+In this example, if ``foo`` is evaluated such that its argument can not be resolved at compile-time,
+the function ``compute_angle_true`` is only executed at runtime on the classical processor if
+the argument is evaluated to be ``true`` at runtime, and likewise for ``c_foo_false`` if the
+argument evaluates to ``false`` at runtime. Note the use of the ``PROTECT`` attribute for ``true_branch``
+and ``false_branch``. This is added because the base LLVM processing in IQC may prematurely inline these
+function into ``foo``, preventing the FLEQ compilation stage from discriminating which classical
+logic belongs in which branch. This kind of attention to ordering and control over
+execution on the classical processor is primarily relevant if such function calls have side-
+effects outside of the scope of FLEQ. For example, calls to member functions of a class may
+manipulate class member data in which case, special care must be given to insure the execution order
+is as desired.
+
+A ``QExpr``-returning function can introduce locally scoped variables, including locally-scoped
+qubits; see :ref:`local_qubits`. However, such functions should *always* use the ``PROTECT``
+attribute as once again, premature inlining can cause improper scoping of these variables and
+possibly result in a runtime segmentation fault. This is not currently caught by the FLEQ
+compilation stage of IQC; see :ref:`limitations`.
+
+When ``bind`` functionality is introduced, the pre-quantum and post-quantum sections are now shifted relative
+to the ``bind``-generated QBB as discussed in section :ref:`QBB-barriers`. For example,
+
+.. code-block:: C++
+
+  PROTECT QExpr measureBit(qbit &anc, cbit &cont) {
+    return _MeasZ(anc, cont);
+  }
+
+  PROTECT QExpr rotateIfTrue(qbit &q, cbit &cont) {
+    double ang = 3.14 / 4. * (double)cont;
+    return _RX(q, ang);
+  }
+
+  int main() {
+
+    qbit anc;
+    qbit q;
+    cbit cont = false;
+     eval_hold(_H(anc) + measureBit(anc, cont)
+                         << rotateIfTrue(q, cont));
+  }
+
+In this case, the instructions which calculate the rotation angle in ``rotateIfTrue``
+based on the passed ``cbit`` value is inserted in the pre-quantum section for the QBB associated with
+the right-side of the ``bind``, and thus is executed in between the two QBBs, as
+expected. Note again the use of the ``PROTECT`` attribution to prevent premature inlining.
+Also note as specified in section :ref:`basics` that the ``cbit`` is passed to ``rotateIfTrue``
+by reference.
+
+As discussed earlier, non-trivial post-quantum sections are only generated through the use of ``convert`` or
+``this_as_expr`` functionality. Moreover, it is a known issue that in certain cases where unresolved branching
+and ``bind`` functionality are used together, the post-quantum sections may not be inserted into the correct
+branches or the correct order; see :ref:`limitations`. To enforce an ordering on classical logic, one
+can always encapsulate the logic in an "empty" ``QExpr``-returning function, i.e. one that returns only
+``qexpr::identity`` or ``this_as_expr`` without any imperative gate calls. Ordering is then enforced
+via ``bind`` functionality with these empty ``QExpr``-returning functions.
+
+As an example, suppose one writes a quantum function ``QExpr getData(QList qdata, cbit cdata[])`` to extract
+quantum measurement data and classical data analysis function ``bool analyzeData(cbit cdata[])``. One
+can then wrap the analysis function as an empty ``QExpr`` and ``bind`` the two together to form a complete calculation
+as a ``QExpr``:
+
+
+.. code-block:: C++
+
+  QExpr getData(QList qdata, cbit cdata[]);
+  bool analyzeData(cbit cdata[]);
+
+  PROTECT QExpr analyzeData(cbit &result, cbit cdata[]) {
+    result = analyzeData(cdata);
+    return this_as_expr;
+  }
+
+  PROTECT QExpr calculateData(cbit &result, QList qdata) {
+    //use IQC_alloca for the cbit array so that
+    // we can use the size of the QList to determine size
+    cbit *cdata = IQC_alloca<cbit>("", data.size());
+    return getData(qdata, cdata) << analyzeData(result, cdata);
+  }

@@ -1,0 +1,138 @@
+Measurements using Simulated Quantum Backends
+----------------------------------------------
+
+A typical quantum program using the |IQSDK| will do effectively the following sequence:
+1. Submit ``quantum_kernel`` functions to a quantum backend.
+2. Execute ``quantum_kernel`` on the backend.
+3. Retrieve results.
+4. Repeat 1-3 as needed.
+
+After the ``quantum_kernel`` has finished executing,
+users will need to retrieve results from the backend.
+This section describes the result retrieval and aggregation process, using the
+example of the ``FullStateSimulator`` backend.
+
+The ``FullStateSimulator`` class provides three main approaches to obtain statistical measurements:
+
+1. ``getProbabilities()`` (and/or other simulation data)
+2. ``getSamples()``
+3. Repeated execution of explicit measurement operations e.g. ``MeasZ`` (sampling).
+
+These methods will be elaborated in the following sections.
+
+Both |Intel| Quantum Simulator (IQS) and Quantum Dot (QD) Simulator
+backends support collecting the simulation details, such as the quantum
+amplitudes, conditional probabilities, or single-qubit probabilities. The
+``FullStateSimulator`` class provides these data regardless
+of which backend is selected to run the simulation.
+
+Simulation Data
+^^^^^^^^^^^^^^^^
+
+.. list-table:: Simulation Method Comparison
+    :widths: 25 25 10 10 20
+    :header-rows: 1
+
+    * - Method
+      - Returned object
+      - Efficiency (with IQS)
+      - Recommended?
+      - Other Notes
+    * - ``getProbabilities()``
+      - ``vector<double>`` or ``QssMap<double>``
+      - Best
+      - Yes
+      -
+    * - ``getSingleQubitProbs()``
+      - ``vector<double>``
+      - Best
+      - Yes
+      -
+    * - ``getSamples()``
+      - ``vector<vector<bool>>``
+      - Good
+      - Yes
+      -
+    * - ``getAmplitudes()``
+      - ``vector<complex<double>>`` or ``QssMap<complex<double>>``
+      - Good
+      - No
+      - Accurate up to global phase
+    * - Repeated sampling calls
+      - User-defined
+      - Worst
+      - No
+      - Complexity scales with number of samples
+
+Working with the simulation data returned by ``FullStateSimulator`` methods
+such as ``getProbabilities()`` is often the most
+computationally efficient route to simulating a quantum algorithm.
+This is because quantum algorithms often encode their results as
+probabilities of different states.
+If the entire algorithm needed to run many times to sample the probability, as
+required on a hardware quantum backend, the simulation time would increase
+significantly.
+
+For applications that need a set of measurement outcomes, both backends of the
+``FullStateSimulator`` offer a second route to obtain the simulation data, which
+avoids the need for repeated executions of a given ``quantum_kernel`` function.
+This route consists of calling ``getSamples()`` to get sequences of outcomes as if
+measurements were applied to the qubit register. This sampling of results doesn’t
+affect the state and can even be applied as many times as an application calls for.
+
+Combining Simulation Data and Measurement Operations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+IQS offers the ability to retrieve simulation results (i.e. from ``getProbabilities()``
+or ``getSamples()``) when ``quantum_kernel`` functions include measurement
+gates (e.g. ``MeasZ()``).
+
+.. note::
+
+    This feature is not available in QD Simulator because it doesn't collapse the state
+    (see the :ref:`Quantum Dot (QD) Simulator<qdsim>`). This means combining
+    results of measurement operations and sampling results
+    with the QD Simulator can yield unexpected results.
+
+When using probability measurement **and** explicit measurement gates on a qubit in simulations,
+IQS will cause a 'partial collapse' of the
+state in the simulator to a sub-space. You can combine such operations with a
+sampling technique like ``getProbability`` or ``getSamples`` to compute data or
+collect statistics on the sub-space. To support combining measurement operations
+and simulation data, IQS will always collapse the quantum state of the simulator
+when it encounters a measurement operation in a ``quantum_kernel``. Any
+subsequent querying of the ``FullStateSimulator`` after measurement will always
+give the same result on the qubits that had one of ``MeasX``, ``MeasY``, or
+``MeasZ`` applied, and other qubits will have any correlated effects on their
+probabilities present.
+
+Measuring a qubit leaves it in one of the two states into which the measurement
+was projected; e.g. measuring a qubit along the :math:`Z`-axis (in a Bloch sphere
+representation) leaves it in either a :math:`\ket{0}` or
+:math:`\ket{1}` state. Another perspective on this is that the post-measurement
+state of the entire set of qubits now occupies a sub-space of the Hilbert space
+previously occupied by the pre-measurement qubits. This can be qualitatively
+understood by noting that there is no uncertainty in the state of the measured
+qubit. A measurement also has consequences on the correlations arising from
+entanglement between qubits. More simply, measuring one qubit can affect
+the probabilities of the outcomes of measuring a different qubit (provided the
+two qubits were entangled). In the extreme case, a large amount of correlation
+present in the system could mean that a single measurement applied on one qubit
+results in the state of the entire set of qubits being determined, such as for a
+Bell pair or GHZ state.
+
+Using Only Measurement Operations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A third option is to collect your own statistical results by executing the
+entire quantum algorithm with all the required measurement operations many times
+in a loop (or other control-flow structure) to direct execution flow. Each
+iteration of the quantum algorithm produces and then stores, analyzes, or
+accumulates the result of the measurements. Under ideal conditions (no noise),
+the sampling & measurement approaches will each produce statistically-equivalent
+results, especially with large sample sizes. Because quantum algorithms running
+on quantum hardware must use the measurement approach, the simulation data
+and sampling approaches can be seen as a
+debugging mode for the measurement approach. IQS supports using
+measurements anywhere in the quantum algorithm; in contrast, QD Simulator only
+supports reading measurements at the end of the ``quantum_kernel``.

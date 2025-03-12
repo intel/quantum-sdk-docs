@@ -1,0 +1,82 @@
+
+Coherent transformations: control, inversion, and power
+********************************************************
+
+A quantum kernel expression that does not use any preparation or
+measurement gates is called *coherent* and corresponds to a unitary transformation.
+There are several operations that can act on coherent quantum kernel
+expressions in convenient and powerful ways. If these operations are inappropriately called
+on non-coherent quantum kernel expressions, the FLEQ compilation stage of IQC
+will exit with a warning.
+
+.. _unitary-control:
+
+Control
+--------
+
+Coherent qubit control is a unitary transformation that
+applies an input unitary conditioned on the computation eigenstate of a control qubit.
+Note the qubit state must be independent of the input unitary for the transformation
+to be well-defined (enforced by the FLEQ compilation stage of IQC).
+
+FLEQ supports several variations on coherent qubit control:
+
+``QExpr qexpr::control(qbit &q, bool b = true, QExpr u)``
+
+  Returns a quantum kernel expression implementing unitary control of the unitary
+  ``u`` based on the qubit ``q`` being in state :math:`\ket{b}`. That is, if ``b == true``, the control is on
+  the :math:`\ket{1}` state and if ``b == false``, the control is on the :math:`\ket{0}` state.
+  The value of ``b`` can be dynamic i.e. it does not have to be resolved at compile-time.
+  Its default value is ``true``.
+
+``QExpr qexpr::qIf(qbit &q, QExpr uT, QExpr uF)``
+
+  Returns a quantum kernel expression that controls the unitary ``uT`` on the
+  condition of :math:`q=\ket{1}` and ``uF`` on the condition of :math:`q=\ket{0}`.
+
+``QExpr qexpr::control(QList qs, unsigned int ctl_on = -1, QExpr u)``
+
+  Returns a quantum kernel expression that controls the unitary
+  ``u`` on the state of the qubits in ``qs`` such that ``u`` is applied to
+  the state only if :math:`\texttt{qs}[i] = \ket{(\texttt{ctl\_on} << i) \% 2}` for all :math:`i < \texttt{qs.size()}`.
+  Said differently, the binary representation of the computational state of
+  ``qs`` matches the binary representation of ``ctl_on`` where earlier qubits
+  in ``qs`` correspond to the more significant bits (big-endian). ``ctl_on``
+  can be dynamic i.e. does not have to be resolved at compile time and has a
+  default value of ``-1`` which for ``unsigned int`` translates to
+  :math:`2^{32}-1 = 1111\ldots`. The size of ``qs`` is limited to ``8`` qubits as
+  enforced by the FLEQ compilation stage of IQC. This was done since the
+  function does not add ancilla qubits and as such, the circuit cost grows
+  exponentially with the size of ``qs``.
+  The recursion limit can be overcome by chaining ``control`` calls using
+  recursion (see :ref:`recursion`) or with the explicit use of ancilla.
+  See :ref:`limitations`.
+
+Inversion
+---------
+
+Coherent quantum kernel expressions can be inverted using the operation ``invert``.
+
+``QExpr qexpr::invert(QExpr u)``
+
+  Returns a quantum kernel expression implementing the unitary :math:`U^\dagger`, provided ``u`` is a coherent quantum kernel expression implementing the unitary :math:`U`.
+
+  ``invert`` has three equivalent operator overloads, ``!u``, ``~u`` and ``-u``.
+
+Power
+------
+
+The power of a quantum kernel expression refers to repeated application of its
+logic on the quantum backend.
+
+``QExpr qexpr::power(unsigned int n, QExpr e)``
+
+  If :math:`n > 0`, returns a quantum kernel expression that joins ``e`` with itself ``n`` times. If :math:`n=0`, returns the identity quantum kernel expression.
+  In these two cases, ``e`` need not be coherent.
+
+  If :math:`n < 0`, ``e`` must be coherent, in which case ``power(e,n)`` is equivalent to ``power(invert(e), -n)``.
+
+  Currently, ``n`` must be resolvable at compile-time, though future versions
+  will relax this constraint.
+
+  ``power`` has an operator overload ``e^n`` which is equivalent to ``qexpr::power(e, n)``.

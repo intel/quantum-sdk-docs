@@ -1,0 +1,335 @@
+.. _compiler:
+
+Compiling
+=========
+
+The compiler's operation can be modified using command-line flags,
+allowing functionality such as specifying header include paths and library paths,
+redirecting output files, and specifying different qubit hardware or connectivity.
+These options can be printed by running
+
+.. code-block:: console
+
+   $ ./intel-quantum-compiler -h
+
+.. _output:
+
+.. include:: output.rst
+
+Compiler Optimization
+---------------------
+
+As in compilation for classical programs, the LLVM-based |IQSDK| quantum
+compiler can look for opportunities to reduce the required quantum
+instructions and/or order and execute them more optimally.
+This optimization accounts for logical and physical constraints, and can
+be activated by passing one of the following optimization options:
+
+* ``-O0``:
+
+    This optimization flag represents no optimization at this time.
+    This is the default if no flag is provided.
+    Certain compiler passes will still be applied, such as converting
+    to :ref:`native gates<native>`.
+
+* ``-O1``:
+
+    This optimization flag enables high-level quantum optimizations
+    on the ``quantum_kernel`` functions. At this time, the ``-O1``
+    optimization converts all ``quantum_kernel`` functions to a high-level
+    representation we refer to as a "product-of-Pauli-rotations" representation.
+    The overall unitary (and more generally, the quantum channel) is converted to
+    an abstract Pauli-based form, consisting of:
+
+    * A sequence of Pauli-operator-based elements of the form :math:`e^{-i t P}`,
+      where :math:`P` is a general Pauli operator (tensor product of single-qubit
+      Pauli operators) and :math:`t` is any real number.
+    * Analogous elements for Clifford operations and non-unitary quantum operations such as measurement
+      and qubit preparation.
+
+    Optimizations are performed on this representation, which is then used to
+    synthesize a new circuit directly using native gates for the target backend.
+    The synthesis process minimizes entangling gates and overall depth. The
+    synthesis methods are adapted from :cite:p:`SSJM24`, :cite:p:`PSIW23`, :cite:p:`SISG23`.
+
+For ``quantum_kernel`` functions that use many qubit preparation operations, i.e.
+significantly more than the number of qubits used, use of ``-O1`` flag is known
+to dramatically slow down the compilation due to the intense amount of computation needed.
+
+.. _placement_and_scheduling:
+
+Qubit Placement and Scheduling
+------------------------------
+
+.. note::
+
+    This section distinguishes between a **physical** qubit, and a **program** qubit,
+    which is the model used in users' programs. A "program qubit" is sometimes
+    referred to as a virtual qubit.
+    For the purposes of this section, the primary constraint of a physical qubit
+    is that it will not have all-to-all connectivity, meaning it is not possible
+    to perform a two-qubit gate between every pair of qubits.
+    A physical qubit does not need to be implemented in hardware, and can
+    exist solely in simulation.
+
+The backends of the |IQSDK| provide features to simulate quantum
+hardware at different levels of idealization.
+For example, the ``FullStateSimulator`` backend provides an idealized quantum
+computer with unlimited ("all-to-all") physical connectivity between simulated physical qubits,
+so there is no "placement" decision required to map program ``qbit`` objects in the source
+code onto the physical qubits.
+
+When all-to-all physical qubit connectivity is not available,
+some algorithms will require moving the program qubits
+around over the physical qubits.
+
+The |IQSDK| compiler integrates the solution to this constraint into the
+quantum basic block functions it constructs from ``quantum_kernel`` functions. The
+placement compiler pass assigns program qubits (as declared in user's source code)
+to physical qubits (as defined in a platform configuration ``.json`` file).
+This is the initial placement of the program qubits which may change
+once the circuit has been processed by the scheduler compiler pass.
+
+The scheduler compiler pass sequences the quantum instructions & gates,
+accounting for physical qubit connectivity by adding quantum
+instructions required to implement the algorithm.
+These additional quantum instructions effectively "move" the quantum information
+across physical qubits to perform a quantum gate between program qubits whose
+physical qubits were not directly connected.
+
+.. _placement:
+
+Placement
+^^^^^^^^^
+
+By default, the placement pass assumes an all-to-all connectivity between the
+physical qubits and assigns the program qubits to physical qubits trivially,
+meaning program qubit 0 is assigned to physical qubit 0, program qubit 1 to physical
+qubit 1, and so on. If using the default mode, the ``-c`` flag
+(specifying a configuration file) is optional when invoking the compiler.
+
+For example,
+
+.. code-block:: console
+
+   $ ./intel-quantum-compiler quantum_algorithm.cpp
+
+
+In this case, ``-c`` is not required and the placement pass uses the default
+trivial placement.
+
+When a configuration file is provided, the compiler offers four
+placement methods:
+
+1. Trivial (``-p trivial``): Map program qubits to physical ones trivially (see above).
+2. Dense (``-p dense``): Map the program qubits in a cluster of the highest
+   connected portion of the given connectivity as defined in the platform configuration
+   file.
+3. Local (``-p local``): Use a local search optimization technique to place qubits that
+   occur in the same gate close to each other.
+4. Custom (``-p custom``): User provides the desired placement in their source
+   code (see below).
+
+In general, if the user wishes to select a placement method, the ``-c`` flag
+must also be specified.
+To invoke the placement pass, use the ``-p`` flag.
+Only one ``-p`` flag is accepted at a time.
+
+.. code-block:: console
+
+   $ ./intel-quantum-compiler -c configuration_file -p trivial quantum_algorithm.cpp
+   $ ./intel-quantum-compiler -c configuration_file -p dense quantum_algorithm.cpp
+   $ ./intel-quantum-compiler -c configuration_file -p local quantum_algorithm.cpp
+
+
+If using custom placement, both insert the following line to define
+the placement in the source code:
+
+.. code-block:: c++
+
+   // When defining the global qubit register, provide the custom placement.
+   qbit qreg[3] = {2, 0, 1}
+   // This places program qubit qreg[0] to physical qubit 2, qreg[1] to physical qubit 0, and qreg[2] to physical qubit 1.
+
+
+And invoke the placement pass with the ``-p custom`` flag:
+
+.. code-block:: console
+
+   $ ./intel-quantum-compiler -c configuration_file -p custom quantum_algorithm.cpp
+
+Details about Local Search Placement
+++++++++++++++++++++++++++++++++++++
+
+The local search compares two graphs with sets of vertices and edges.
+The application graph has vertices of program qubits and edges defined between
+two vertices if their respective program qubits appear in the same gate.
+It also considers the qubit connectivity graph, where the vertices are the
+physical qubits and the edges are the pairs of qubits for which the qubit chip
+natively supports operations between them.
+It would be ideal to place the qubits such that the placement maps an edge on
+the application graph maps to an edge on the qubit connectivity graph.
+However, this is not always possible.
+The local search can be configured with a certain amount of resets and a certain
+amount of iterations per reset.
+This can be passed through ``-i=n`` or ``-r=n`` as a compilation option.
+
+Each reset starts out at a random placement, and iteratively swaps qubits using
+two qubits connected in the qubit connectivity graph.
+Half the time, it greedily chooses an edge to minimize a heuristic, and the
+other half of the time it does a random move to get out of a local minima.
+
+The heuristic is based on iterating over all edges on the application graph,
+and for each edge adding up the minimal path length on the qubit connectivity
+graph between the two physical qubits that the placement maps the two program
+qubits onto that make up the edge in the application graph.
+There are some optimizations related to the fact that many of the terms in
+these sums do not need to be recomputed each time.
+
+Known Limitations with the Placement pass
++++++++++++++++++++++++++++++++++++++++++
+
+Custom placement can only be used on global ``qbit`` variables, not local ``qbit`` variables.
+
+.. _scheduling:
+
+Scheduling
+^^^^^^^^^^
+
+By default, the scheduler pass is disabled and an all-to-all connection is
+assumed of the device.
+
+When the qubit connectivity is constrained, the scheduler adds SWAP gates to
+dynamically change the map specifying the program-to-physical-qubit assignment.
+For simplicity, we refer to this map as the "qubit map".
+
+Updating the qubit map is often referred as "routing" since it can be visualized
+as a movement of the program qubits onto the physical qubit graph.
+Routing consists of two parts, performed once per QBB:
+
+1. Forward routing: needed to satisfy the connectivity constraints when 2-qubit
+   gates in the QBB need to be scheduled for execution. This changes the
+   program-to-physical-qubit map.
+2. Backward routing: needed to re-schedule the program qubits to the qubit map expected at the
+   end of the QBB. This is a requirement of advanced quantum programs in which
+   the order of QBB execution is not known at compile time. No backward routing
+   is needed when the qubits are released after execution, i.e. when the QBB
+   contains the command ``release_quantum_state()``.
+
+The forward routing method can be set by using the ``-S`` flag:
+
+* ``none``: connectivity constraints are neglected.
+* ``greedy``: given gate G between program qubits (qA, qB) currently mapped to
+  physical qubits (QA, QB), the method search for two physical qubits (QC, QD)
+  such that:
+
+  1. Gate G is available between (QC, QD).
+  2. The duration of a SWAP chains from QA to QC and from QB to QD, plus the
+     duration of gate G(QC, QD) is minimized.
+  3. The SWAP chains in point 2 are computed via A* search with the SWAP chain
+     duration as the cost function.
+  4. Ties in point 2 are broken by favoring solutions with balanced durations
+     of the SWAP chains QA to QC and QB to QD.
+
+  This method works for any connectivity.
+
+The backward routing method can be set by using the ``-K`` flag:
+
+* ``retrace``: perform all the SWAP gates added in the forward routing but in
+  opposite order. Cancel consecutive SWAP gates on the same pair of physical
+  qubits. This method is often inefficient, but the overhead is at most twice
+  the forward routing cost. It works for any qubit connectivity.
+* ``bubble-sort``: for linear connectivity only, based on the bubble-sort
+  algorithm. It considers the qubit map desired at the end of the QBB as defining
+  the order among program qubits and the qubit map at the end of the forward
+  routing as an unordered program qubit sequence (to be ordered via bubble sort).
+  This works also for non-linear connectivity when a Hamiltonian path can
+  be identified via a simple heuristic.
+* ``oddeven-sort``: as for ``bubble-sort`` but using the odd-even transposition
+  sort algorithm.
+* ``grid``: for 2D grid connectivity only, based on the successive ordering
+  along rows, columns, and rows again. The size of the 2D grid is identified
+  automatically given that the physical qubits are ordered with the row-major
+  ordering.
+
+To invoke the scheduler pass, use the ``-S`` and ``-K`` flags:
+
+.. code-block:: console
+
+   $ ./intel-quantum-compiler -c configuration_file -S greedy -K bubble-sort quantum_algorithm.cpp
+
+
+Known Limitations with the Scheduler pass
++++++++++++++++++++++++++++++++++++++++++
+
+If the scheduler pass ``-S`` flag is not set or set to "none", the compiler
+assumes an all-to-all connectivity even if a non-all-to-all connectivity is given
+in the config .json. Conversely, to invoke the ``-S`` flag, the ``-c`` flag must
+be given.
+
+If the ``-p`` flag is given, the scheduler will use the placement generated by
+the placement pass as an initial placement. If the ``-p`` flag is not given but
+the ``-S`` flag is set, the scheduler will assume a trivial initial placement.
+
+When the ``-S`` flag is not set and ``-O1`` optimization is set, some
+``quantum_kernel`` functions may see additional ``quswapalp`` gate operations at
+the end of the ``quantum_kernel``.
+
+When the ``-K`` flag is set to either ``bubble-sort`` or ``oddeven-sort`` but
+a Hamiltonian path cannot be found in the connectivity graph of physical qubits,
+the default ``retrace`` method is used.
+
+When the ``-K`` flag is set to ``grid`` but the connectivity graph does not correspond
+to a row-major 2D array of qubits, the default ``retrace`` method is used.
+
+
+Combining the ``-p`` and ``-S`` flags
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Placement and scheduling passes can be invoked together with the ``-p`` and the
+``-S`` flags:
+
+.. code-block:: console
+
+   $ ./intel-quantum-compiler -c configuration_file -p custom -S greedy quantum_algorithm.cpp
+
+
+.. _configuration file:
+
+Sample Platform Configuration files
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The SDK comes with example platform configuration files representing the details of
+a different implementation of quantum hardware. They are:
+
+* 8 qubits: Linear connectivity targeting the quantum dot simulator backend.
+* 9 qubits: Square grid connectivity targeting non quantum dot simulation backends.
+* 34 qubits: Linear connectivity targeting non quantum dot simulation backends.
+* 256 qubits: Square grid connectivity targeting non quantum dot simulator backends.
+* 256 qubits: Ladder connectivity targeting non quantum dot simulator backends.
+* 256 qubits: Linear connectivity targeting non quantum dot simulator backends.
+
+For usage with the quantum dot simulator, use ``intel-quantum-sdk-QDSIM.json``
+which points to the 8 qubit configuration file.
+For usage with the non quantum dot simulator backends or just the compiler, use
+``intel-quantum-sdk.json``. By default, ``intel-quantum-sdk.json`` points to the
+256 qubit configuration file. If you wish to use other configuration files,
+please copy ``intel-quantum-sdk.json`` to your own directory,
+modify the pointed to configuration file and use the ``-c`` flag to point to your
+copy.
+
+.. _circuit:
+
+.. include:: circuit.rst
+
+.. _openqasm:
+
+.. include:: openqasm.rst
+
+Other Compiler Flags
+--------------------
+
+Verbosity - ``-v``:
+
+    Provides a summary of each ``quantum_kernel`` in terms
+    of both the supported gates set and the quantum dot qubit gates set.

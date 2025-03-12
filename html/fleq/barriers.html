@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Barriers and binding &#8212; Intel® Quantum SDK API v1.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=45183d27"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Advanced topics" href="advanced.html" />
+    <link rel="prev" title="DataList" href="datalist.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="barriers-and-binding">
+<span id="bind"></span><h1>Barriers and binding<a class="headerlink" href="#barriers-and-binding" title="Link to this heading">¶</a></h1>
+<section id="quantum-basic-blocks-and-barriers">
+<span id="qbb-barriers"></span><h2>Quantum basic blocks and barriers<a class="headerlink" href="#quantum-basic-blocks-and-barriers" title="Link to this heading">¶</a></h2>
+<p>Quantum programming languages often provide <em>circuit barriers</em> which prevent
+optimization across a boundary. That is, a barrier guarantees that all gates
+that come before it are are executed before any of the gates that come after. In
+the Intel® Quantum SDK, every two top-level <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> function
+calls or FLEQ evaluation calls are separated implicitly by a barrier;
+in other words, barriers separate any two
+QBBs. Each QBB is a standalone block of quantum logic, and does not know a priori
+what quantum logic is executed before or after it. As a result, each QBB must be
+implicitly bookended by circuit barriers.</p>
+<p>Consider an example of two separate evaluation calls to a unitary not gate.</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">qexpr</span><span class="o">::</span><span class="n">_X</span><span class="p">(</span><span class="n">q</span><span class="p">));</span><span class="w"> </span><span class="c1">// 1 QBB with 1 gate</span>
+<span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">qexpr</span><span class="o">::</span><span class="n">_X</span><span class="p">(</span><span class="n">q</span><span class="p">));</span><span class="w"> </span><span class="c1">// 1 QBB with 1 gate</span>
+</pre></div>
+</div>
+<p>These two evaluation calls produce two separate QBBs, each containing one gate.
+If, however, these quantum kernel expressions were joined together and executed in
+a single evaluation call, and thus a single QBB, the QBB would be optimized by the
+compiler, canceling out both gates and producing an empty QBB with zero gates.</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">qexpr</span><span class="o">::</span><span class="n">_X</span><span class="p">(</span><span class="n">q</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_X</span><span class="p">(</span><span class="n">q</span><span class="p">));</span><span class="w"> </span><span class="c1">// 1 optimized QBB with 0 gates</span>
+</pre></div>
+</div>
+<p>Barriers in the SDK have the additional property that measurement outcomes
+executed before the barrier are not returned from the backend to the classical
+runtime (i.e. accessible by the program) until after the barrier. In this sense,
+separate <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> function calls or FLEQ evaluation calls also act as a
+“measurement return barrier”. For example, a measurement in a quantum kernel
+expression joined with a conditional <code class="docutils literal notranslate"><span class="pre">cIf</span></code> statement (see <a class="reference internal" href="branching.html#branching"><span class="std std-ref">Branching</span></a>) will
+<em>not</em> correctly propagate the measurement result to the conditional because they
+occur in the same QBB. Consider the following example:</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="kt">bool</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="c1">// WRONG: Always executes H(q2) because the measurement result of q1</span>
+<span class="c1">// is not written to b until the end of the current QBB.</span>
+<span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">qexpr</span><span class="o">::</span><span class="n">_MeasZ</span><span class="p">(</span><span class="n">q1</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">)</span>
+<span class="w">                 </span><span class="o">+</span>
+<span class="w">                 </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_H</span><span class="p">(</span><span class="n">q2</span><span class="p">),</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">()));</span>
+</pre></div>
+</div>
+<p>On the other hand, if the measurement and conditional calls occur in separate
+evaluation calls, there is an implicit barrier between them, which will produce
+correct results.</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="kt">bool</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">qexpr</span><span class="o">::</span><span class="n">_MeasZ</span><span class="p">(</span><span class="n">q1</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">));</span>
+<span class="c1">// Measurement results are written to b a the end of the above QBB,</span>
+<span class="c1">// and so are available by the start of the next QBB.</span>
+<span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_H</span><span class="p">(</span><span class="n">q2</span><span class="p">),</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">());</span>
+</pre></div>
+</div>
+</section>
+<section id="id1">
+<h2>Bind<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<p>While separate <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions and evaluation calls act as a
+barrier, it can also be useful for programmers to insert their own barriers
+within a single quantum kernel expression, for the purposes of expressivity,
+debugging, or branching control. This is provided by the <code class="docutils literal notranslate"><span class="pre">qexpr::bind</span></code>
+functionality, which is also referred to as a “barriered join”. A <code class="docutils literal notranslate"><span class="pre">bind</span></code> combines
+two quantum kernel expressions much in the same way as an ordinary <code class="docutils literal notranslate"><span class="pre">join</span></code>, but
+acts as a barrier between them. Under the hood, the <code class="docutils literal notranslate"><span class="pre">bind</span></code> function produces
+two separate QBBs, one for each quantum kernel expression, which implicitly imposes
+the barrier.</p>
+<p>There are four variations on the <code class="docutils literal notranslate"><span class="pre">bind</span></code> method.</p>
+<p><code class="docutils literal notranslate"><span class="pre">QExpr</span> <span class="pre">qexpr::bind(QExpr</span> <span class="pre">e1,</span> <span class="pre">QExpr</span> <span class="pre">e2)</span></code></p>
+<blockquote>
+<div><p>Returns the barriered join of
+<code class="docutils literal notranslate"><span class="pre">e1</span></code> with <code class="docutils literal notranslate"><span class="pre">e2</span></code> in <em>sequential order</em>, meaning that it evaluates
+<code class="docutils literal notranslate"><span class="pre">e1</span></code> followed by <code class="docutils literal notranslate"><span class="pre">e2</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">e2</span></code></p>
+<blockquote>
+<div><p>Shorthand for <code class="docutils literal notranslate"><span class="pre">qexpr::bind(e1,</span> <span class="pre">e2)</span></code>. Analogous to <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">+</span> <span class="pre">e2</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">&gt;&gt;</span> <span class="pre">e2</span></code></p>
+<blockquote>
+<div><p>Binds the quantum kernel expressions in <em>composition order</em>, meaning that it evaluates
+<code class="docutils literal notranslate"><span class="pre">e2</span></code> followed by <code class="docutils literal notranslate"><span class="pre">e1</span></code>. Analogous to <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">*</span> <span class="pre">e2</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">QExpr</span> <span class="pre">qexpr::fence(QExpr</span> <span class="pre">e)</span></code></p>
+<blockquote>
+<div><p>Shorthand for <code class="docutils literal notranslate"><span class="pre">qexpr::bind(qexpr::identity(),</span> <span class="pre">e)</span></code>.</p>
+</div></blockquote>
+<p>To remember the difference between left shift <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">e2</span></code> and right shift
+<code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">&gt;&gt;</span> <span class="pre">e2</span></code> operators for quantum kernel expressions, recall that sequential
+composition aligns with the left shift operator for stream output e.g.
+<code class="docutils literal notranslate"><span class="pre">std::cout</span> <span class="pre">&lt;&lt;</span> <span class="pre">&quot;Hello</span> <span class="pre">&quot;</span> <span class="pre">&lt;&lt;</span> <span class="pre">&quot;World!&quot;</span></code> where “Hello “ and “World!” are composed
+in sequential order.</p>
+<p>A <code class="docutils literal notranslate"><span class="pre">bind</span></code> call is logically equivalent to a <code class="docutils literal notranslate"><span class="pre">join</span></code> call in nearly every case except
+when acting as a measurement barrier. However,
+whereas the exclusive use of <code class="docutils literal notranslate"><span class="pre">join</span></code> ensures that at runtime, exactly one QBB is issued
+per evaluation call, even with unresolved branching (see <a class="reference internal" href="branching.html#branching"><span class="std std-ref">Branching</span></a>), each call to <code class="docutils literal notranslate"><span class="pre">bind</span></code>
+increases the number of QBBs issued at runtime per evaluation call by one (for that branch) with the order of
+the issuing as specified by the ordering or directionality of the <code class="docutils literal notranslate"><span class="pre">bind</span></code>. Because each QBB
+is bookened by circuit barriers and the end barrier is also a measurement return barrier,
+<code class="docutils literal notranslate"><span class="pre">bind</span></code> is the direct analog of the barrier for <code class="docutils literal notranslate"><span class="pre">QExpr</span></code>. There are three common reasons
+to use <code class="docutils literal notranslate"><span class="pre">bind</span></code> over <code class="docutils literal notranslate"><span class="pre">join</span></code>:</p>
+<ol class="arabic">
+<li><p><strong>Debugging.</strong> As discussed in <a class="reference internal" href="utils.html#printing"><span class="std std-ref">Printing</span></a>, FLEQ compilation uses the PCOAST graph as a
+quantum IR. Due to its level of abstraction, it can be difficult to determine the gate
+sequence used to form the PCOAST graph representation, obscuring errors in the gate
+logic. <code class="docutils literal notranslate"><span class="pre">bind</span></code> can be used to prevent some of the implicit optimizations to better debug
+gate logic errors. When convinced of the logical correctness, a programmer can change the <code class="docutils literal notranslate"><span class="pre">bind</span></code>’s
+to <code class="docutils literal notranslate"><span class="pre">join</span></code>’s to regain the optimization and efficiency.</p></li>
+<li><p><strong>Branching on measurement outcomes.</strong> As discussed in <a class="reference internal" href="#qbb-barriers"><span class="std std-ref">Quantum basic blocks and barriers</span></a>,
+barriers can be necessary to separate measurements from conditionals that depend
+on those measurements, like a <code class="docutils literal notranslate"><span class="pre">cIf</span></code>. For example, consider a
+qubit reset function (logically equivalent to <code class="docutils literal notranslate"><span class="pre">_PrepZ</span></code>) which measures the qubit and
+conditioned on the outcome, applies an <code class="docutils literal notranslate"><span class="pre">_X</span></code> gate to the <code class="docutils literal notranslate"><span class="pre">true</span></code> case:</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">PROTECT</span><span class="w"> </span><span class="n">QExpr</span><span class="w"> </span><span class="n">resetQubit</span><span class="p">(</span><span class="n">qbit</span><span class="w"> </span><span class="o">&amp;</span><span class="n">q</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">cbit</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_MeasZ</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_X</span><span class="p">(</span><span class="n">q</span><span class="p">),</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">());</span>
+<span class="p">}</span>
+
+<span class="n">PROTECT</span><span class="w"> </span><span class="n">QExpr</span><span class="w"> </span><span class="n">NOT_A_RESET</span><span class="p">(</span><span class="n">qbit</span><span class="w"> </span><span class="o">&amp;</span><span class="n">q</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">cbit</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_MeasZ</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_X</span><span class="p">(</span><span class="n">q</span><span class="p">),</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">());</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The first function uses <code class="docutils literal notranslate"><span class="pre">bind</span></code> to fuse the measurement to the conditional, thus ensuring the
+measurement is performed and stored to <code class="docutils literal notranslate"><span class="pre">c</span></code> before evaluating the <code class="docutils literal notranslate"><span class="pre">cIf</span></code>. The second case does
+not use <code class="docutils literal notranslate"><span class="pre">bind</span></code> and is logically equivalent to only the measurement since <code class="docutils literal notranslate"><span class="pre">c</span></code> remains its initial value of
+<code class="docutils literal notranslate"><span class="pre">false</span></code> when the <code class="docutils literal notranslate"><span class="pre">cIf</span></code> is evaluated.</p>
+</li>
+<li><p><strong>Unresolved branching control.</strong> As discussed in <a class="reference internal" href="branching.html#branching"><span class="std std-ref">Branching</span></a>, FLEQ
+compilation handles unresolved branching (in the absence of <code class="docutils literal notranslate"><span class="pre">bind</span></code>) by
+combinatorially building all possible QBBs and inserting classical branching
+to select exactly one at runtime. This means that every <code class="docutils literal notranslate"><span class="pre">join</span></code> between two
+unresolved <code class="docutils literal notranslate"><span class="pre">cIf</span></code> calls doubles the number of QBBs. This can cause an
+exponential increase in the number and complexity of that branching, although
+FLEQ compilation performs admirably in generating these branches
+(on-the-order of thousands without a prohibitive increase in compile-time and
+binary size). However, this exponential increase eventually will become
+problematic if not controlled. One way to avoid this is by replacing
+<code class="docutils literal notranslate"><span class="pre">join</span></code>’s with <code class="docutils literal notranslate"><span class="pre">bind</span></code>’s. By issuing multiple QBBs per evaluation, FLEQ
+compilation no longer needs to generate every unique combination, but only
+those bookended by the <code class="docutils literal notranslate"><span class="pre">bind</span></code>.</p></li>
+</ol>
+<p>Each core FLEQ function has a different distributive or associative behavior with regards to <code class="docutils literal notranslate"><span class="pre">bind</span></code>:</p>
+<blockquote>
+<div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">qexp::control</span></code>, <code class="docutils literal notranslate"><span class="pre">qexpr::power</span></code>, <code class="docutils literal notranslate"><span class="pre">qexpr::printQuantumLogic</span></code>, and  <code class="docutils literal notranslate"><span class="pre">qexpr::printDataList</span></code> all distribute over <code class="docutils literal notranslate"><span class="pre">bind</span></code>,
+i.e. <code class="docutils literal notranslate"><span class="pre">f(e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">e2)</span></code> is equivalent to <code class="docutils literal notranslate"><span class="pre">f(e1)</span> <span class="pre">&lt;&lt;</span> <span class="pre">f(e2)</span></code> for <code class="docutils literal notranslate"><span class="pre">f</span></code> being one of these four functions.</p>
+<p>All of these are intuitive except for <code class="docutils literal notranslate"><span class="pre">power</span></code>. Consider that
+<code class="docutils literal notranslate"><span class="pre">power(2,</span> <span class="pre">e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">e2)</span></code> is equivalent
+to <code class="docutils literal notranslate"><span class="pre">power(2,</span> <span class="pre">e1)</span> <span class="pre">&lt;&lt;</span> <span class="pre">power(2,</span> <span class="pre">e2)</span></code> – that is, <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">+</span> <span class="pre">e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">e2</span> <span class="pre">+</span> <span class="pre">e2</span></code> – and <em>not</em> <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">e2</span> <span class="pre">+</span> <span class="pre">e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">e2</span></code>.
+This is a known issue which
+can be overcome by using a recursive version of power:</p>
+<blockquote>
+<div><div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">QExpr</span><span class="w"> </span><span class="nf">recursivePower</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="n">QExpr</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">n</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">(),</span>
+<span class="w">         </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">n</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w">  </span><span class="n">e</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">recursivePower</span><span class="p">(</span><span class="n">n</span><span class="mi">-1</span><span class="p">,</span><span class="w"> </span><span class="n">e</span><span class="p">),</span>
+<span class="w">         </span><span class="n">qexpr</span><span class="o">::</span><span class="n">invert</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">recursivePower</span><span class="p">(</span><span class="n">n</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">e</span><span class="p">)</span>
+<span class="w">  </span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">qexpr::invert</span></code> distributes in the analogous way to <code class="docutils literal notranslate"><span class="pre">qexpr::join</span></code>, i.e. <code class="docutils literal notranslate"><span class="pre">qexpr::invert(e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">e2)</span></code>
+is equivalent to <code class="docutils literal notranslate"><span class="pre">qexpr::invert(e2)</span> <span class="pre">&lt;&lt;</span> <span class="pre">qexpr::invert(e1)</span></code>. Note, this inversion of ordering also holds
+for classical instructions attached to the quantum kernel expressions <code class="docutils literal notranslate"><span class="pre">e1</span></code> and <code class="docutils literal notranslate"><span class="pre">e2</span></code>; see <a class="reference internal" href="classical-quantum-ordering.html#classical"><span class="std std-ref">Ordering of classical and quantum operations</span></a>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">qexpr::join</span></code> is associative with <code class="docutils literal notranslate"><span class="pre">bind</span></code>, not distributive. For example:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">+</span> <span class="pre">(e2</span> <span class="pre">&lt;&lt;</span> <span class="pre">e3)</span></code> is equivalent to <code class="docutils literal notranslate"><span class="pre">(e1</span> <span class="pre">+</span> <span class="pre">e2)</span> <span class="pre">&lt;&lt;</span> <span class="pre">e3</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">(e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">e2)</span> <span class="pre">+</span> <span class="pre">e3</span></code> is equivalent to <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">(e2</span> <span class="pre">+</span> <span class="pre">e3)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">*</span> <span class="pre">(e2</span> <span class="pre">&lt;&lt;</span> <span class="pre">e3)</span></code> is equivalent to <code class="docutils literal notranslate"><span class="pre">e2</span> <span class="pre">&lt;&lt;</span> <span class="pre">(e1</span> <span class="pre">*</span> <span class="pre">e3)</span></code></p></li>
+</ol>
+</li>
+</ul>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">qexpr::cIf</span></code> does not distribute over or associate with <code class="docutils literal notranslate"><span class="pre">bind</span></code>. If the conditional is resolved, then just as described, the
+resolved branch <code class="docutils literal notranslate"><span class="pre">QExpr</span></code>, <code class="docutils literal notranslate"><span class="pre">bind</span></code>-ed or not, is returned. If the conditional is not resolved, then the <code class="docutils literal notranslate"><span class="pre">bind</span></code> behavior is
+dependent on the branch as expected. For example, <code class="docutils literal notranslate"><span class="pre">cIf(b,</span> <span class="pre">e1,</span> <span class="pre">e2</span> <span class="pre">&lt;&lt;</span> <span class="pre">e3)</span></code> generates a <code class="docutils literal notranslate"><span class="pre">true</span></code> branch which only represents the
+QBB(s) for <code class="docutils literal notranslate"><span class="pre">e1</span></code> whereas the <code class="docutils literal notranslate"><span class="pre">false</span></code> branch represents the consecutive QBB(s) for <code class="docutils literal notranslate"><span class="pre">e2</span></code> followed by those for <code class="docutils literal notranslate"><span class="pre">e3</span></code>. <code class="docutils literal notranslate"><span class="pre">bind</span></code>
+effectively distributes over <code class="docutils literal notranslate"><span class="pre">cIf</span></code>, i.e. <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">cIf(b,</span> <span class="pre">e2,</span> <span class="pre">e3)</span></code> is logically equivalent to <code class="docutils literal notranslate"><span class="pre">cIf(b,</span> <span class="pre">e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">e2,</span> <span class="pre">e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">e3)</span></code> but
+the branching in the IR will be different as the former represents the QBB(s) of <code class="docutils literal notranslate"><span class="pre">e1</span></code>  which then branch between
+<code class="docutils literal notranslate"><span class="pre">e2</span></code> and <code class="docutils literal notranslate"><span class="pre">e3</span></code> whereas the latter branches to one of two copies of <code class="docutils literal notranslate"><span class="pre">e1</span></code> which then branches to either <code class="docutils literal notranslate"><span class="pre">e2</span></code> or <code class="docutils literal notranslate"><span class="pre">e3</span></code> based
+on the condition.</p></li>
+</ul>
+</div></blockquote>
+</div></blockquote>
+<p>Custom functions inherent their behavior with respects to <code class="docutils literal notranslate"><span class="pre">bind</span></code> from their constituent core function calls.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Intel® Quantum SDK API</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dgr/index.html">Developers Guide and Reference</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">FLEQ Guide and Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="features.html">Features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced.html">Advanced topics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="support.html">Support</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../citations.html">Citations</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">FLEQ Guide and Reference</a><ul>
+  <li><a href="features.html">Features</a><ul>
+      <li>Previous: <a href="datalist.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">DataList</span></code></a></li>
+      <li>Next: <a href="advanced.html" title="next chapter">Advanced topics</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024 Intel Corporation. All Rights Reserved.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/fleq/barriers.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

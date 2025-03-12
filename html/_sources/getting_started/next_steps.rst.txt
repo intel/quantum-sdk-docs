@@ -1,0 +1,29 @@
+.. _next_steps:
+
+Next Steps
+==========
+
+To read about individual components of the |IQSDK|, see
+the accompanying documents |DGR|, |Tutorials|, |FLEQ| and |API|.
+
+To explore examples included with the |IQSDK|, look in the
+``/<path to IQSDK>/quantum_examples/`` and
+``/<path to IQSDK>/python-quantum-examples/`` directories.
+
+.. _fundamentals:
+
+Fundamentals
+------------
+
+To find out more about the core concepts of quantum computing, such as qubit
+mathematics or quantum circuit representations, we recommend using a
+textbook such as
+
+1. "Quantum Computation and Quantum Information" by Nielsen and Chuang :cite:p:`NiCh10`.
+2. "Quantum Computing for Computer Scientists" by Yanofsky and Mannucci :cite:p:`YaMa08`.
+3. "Quantum Computing: An Applied Approach" by Hidary :cite:p:`Hida19`.
+
+To brush up on C++, we recommend the latest edition of "Tour of C++" by Bjarne
+Stroustrup :cite:p:`Stro22`. In our code, we strive to adhere to the
+`LLVM style standard <https://llvm.org/docs/CodingStandards.html#style-issues>`_
+to simplify working with our APIs.

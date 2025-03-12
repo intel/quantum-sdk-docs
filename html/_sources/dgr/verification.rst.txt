@@ -1,0 +1,79 @@
+Formal Verification in the |IQSDK|
+==================================
+
+Compiler Correctness and the Testing Problem
+--------------------------------------------
+
+The |Intel| Quantum Compiler (IQC) transforms a source program, written in C++,
+into a form compatible with the quantum runtime (QRT). The compiler includes
+stages such as unrolling, optimization, synthesis, placement, and routing, to
+ensure that the resulting program can be seamlessly executed on any number of
+quantum backends. As a result, the compiled program is structurally quite
+different from the source program, even though a user expects the two to act the
+same. The property that source and target programs always have the same behavior
+is called *compiler correctness*.
+
+IQC uses extensive testing and robust software development practices to ensure
+compiler correctness. Unfortunately, compilers always have the potential for
+bugs, and analysis has shown that bugs do indeed arise even in widespread and
+well-tested quantum compiler and software stacks :cite:p:`WZXK21`
+:cite:p:`PaPr22` :cite:p:`PaPr23`. In fact, quantum compilers are uniquely
+susceptible to certain kinds of bugs.
+
+1. It is difficult for the average user to examine a compiled program and
+   determine if it acts the same as their original source program. For example,
+   a source program that uses a common hardware-independent gate set like Clifford + T will be
+   compiled to a program that uses gates native to quantum dots
+   such as ``qurotxy`` and ``quswapalp`` (:ref:`native`).
+2. Quantum circuit optimizations are based on advanced mathematical analysis
+   like PCOAST :cite:p:`PSIW23` :cite:p:`SISG23`, which are computationally
+   expensive to exhaustively test and analyze.
+3. Conventional software testing is typically performed on classical machines,
+   and thus requires efficient simulation. As a result, while testing can be
+   useful for programs with small numbers of qubits, it is not possible to
+   apply the same techniques to programs with large numbers of qubits.
+
+Validation at Scale
+---------------------
+
+To complement testing and software development practices, IQC incorporates
+*formal verification*. Formal verification refers to a range of techniques to
+ensure a software or hardware system adheres to a specification. While testing
+can check correctness for a finite number of inputs to a compiler, formal
+verification can reason about compiler correctness for *all* possible inputs.
+Using proof assistants and high-level reasoning techniques like induction,
+formal verification can achieve this in a *scalable* manner, without the need to
+exhaustively check all inputs. This scalability is critical for quantum
+compilers due to the exponential cost of testing programs with large numbers of
+qubits.
+
+Formal verification of the IQC is designed to be both *scalable* and *modular*.
+At the time of this release, the formally verified components include the
+representation of Pauli operators used extensively in PCOAST optimizations.
+However, the modular design means that future work can easily accommodate other
+formally verified components in future releases.
+
+
+CertiCOAST
+-----------
+
+IQC leverages the `Coq proof assistant <https://coq.inria.fr/>`_, a mature
+theorem prover that specializes in higher-order reasoning, for formal
+verification. Our approach involves the following steps:
+
+1. First, we model IQC components in the Coq proof assistant and prove
+   them correct. For example, we model Pauli operators (used extensively in
+   PCOAST optimizations) as data structures and give them semantics in terms
+   of Pauli matrices. For now, we focus on verifying PCOAST optimizations.
+2. Next, we use CertiCoq :cite:p:`AAMP17` :cite:p:`KoSA25` to compile these
+   components to C. We wrap these operators in a C++ library and integrate
+   them into the IQC. We refer to these compiled C++ libraries as
+   *CertiCOAST*---a certified implementation of PCOAST optimizations.
+
+To access the |IQSDK| with formally verified components, use the
+`-V` flag during compilation.
+
+Note that formally verified components are not enabled by default because
+they are less optimized compared to the default components, and thus lead to
+longer compilation times---a trade-off between compiler time and assurance of
+compiler correctness.

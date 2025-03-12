@@ -1,0 +1,43 @@
+.. _mpi:
+
+Running With MPI
+================
+
+MPI Support
+-----------
+The |IQSDK| leverages Message Passing Interface (MPI) in the qubit simulation backends for improved performance.
+It also provides users the option to run IQS simulations distributed across multiple compute nodes, enabling simulations involving larger numbers of qubits with the increased available memory.
+
+Execution
+---------
+To run the compiled executable, simply invoke it with
+
+.. code-block:: console
+
+   $ ./quantum_algorithm
+
+If your program distributes IQS across multiple nodes of machines for distributed memory, launch the application with the ``mpirun`` command and use ``-n`` to specify the number of ranks. The total number of ranks must be a power of 2.
+
+Here is an example command to run a program with 2 ranks.
+
+.. code-block:: console
+
+   $ mpirun -n 2 ./quantum_algorithm_iqs_distributed_mem
+
+
+Sourcing compiler variables
+---------------------------
+
+This is required once per interactive session or once per job script for running the executable.
+
+.. code-block:: console
+
+   $ source /opt/intel/oneapi/setvars.sh
+
+
+Known Limitations with MPI
+--------------------------
+Users can implement their own parallel code, but should not call ``MPI_Finalize()``.
+Otherwise, |IQSDK| will call MPI functions after users' ``MPI_Finalize()`` call, which is not allowed.
+
+While running a simulation with more than 35 qubits, the ``displayAmplitudes()``, ``getAmplitudes()``, ``displayProbabilities()``, and ``getProbabilities()`` APIs might not work properly if the user tries to get all amplitudes or probabilities.

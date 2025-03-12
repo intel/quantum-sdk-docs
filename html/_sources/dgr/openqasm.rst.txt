@@ -1,0 +1,17 @@
+Support for OpenQASM 2.0
+-------------------------
+
+The |IQSDK| provides a source-to-source converter which takes OpenQASM
+code and converts it into C++ for use with the |IQSDK|. This
+converter requires Python 3; see |GettingStartedGuide:SystemReqs|
+section for specifics and recommendations. Currently, it processes OpenQASM 2.0
+compliant code as described by the Open Quantum Assembly Language paper
+(`arXiv:1707.03429 [quant-ph] <https://doi.org/10.48550/arXiv.1707.03429>`_).
+
+To translate an OpenQASM file to C++ file, you can run the compiler
+with the ``-B`` flag to generate the corresponding ``quantum_kernel`` functions in C++
+format.
+
+.. code-block:: console
+
+   $ ./intel-quantum-compiler -B example.qasm

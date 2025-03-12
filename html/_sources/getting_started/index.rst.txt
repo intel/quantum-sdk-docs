@@ -1,0 +1,13 @@
+.. _getting_started_guide:
+
+Getting Started Guide
+======================
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contents:
+
+   getting_started
+   new_algos
+   next_steps

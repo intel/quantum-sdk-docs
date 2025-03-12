@@ -1,0 +1,41 @@
+Quantum Dot Qubit Gates
+-----------------------
+
+Some physical systems will find it easier to implement certain quantum gates
+because of differences in the underlying quantum systems used to create hardware qubits.
+If two sets of quantum gates are each universal for quantum computing, then a quantum
+algorithm can be implemented in either set of quantum gates. Below is the
+list of the quantum gates that the |IQSDK| targets during compilation.
+The gates written in the ``quantum_kernel`` functions are decomposed by the
+compiler into the gates below, and the results can be found in the human-readable
+``.qs`` file. This list is for reference.
+
+1. ``quprepz(qbit q)``
+
+   An incoherent reset to computational :math:`\ket{0}` state.
+
+2. ``qumeasz(qbit q)``
+
+   Measurement in the :math:`Z` basis. This collapses the qubit to the
+   measured state, either :math:`\ket{0}` or :math:`\ket{1}`.
+
+3. ``qurotxy (qbit q, double theta, double phi)``
+
+   A rotation of ``theta`` around arbitrary axis in X-Y plane of the Bloch
+   sphere as characterized by angle ``phi``, i.e. the operator
+   :math:`\exp \left\{ -i \, \theta/2 \left( \cos(\phi) \hat{\textrm{X}} + \sin(\phi) \hat{\textrm{Y}} \right) \right\}`.
+
+4. ``qucphase(qbit q1, qbit q2, double theta)``
+
+   An arbitrary phase of :math:`\exp \left(-i \, \theta \right)` on the
+   :math:`\ket{11}` state of the given qubits.
+
+5. ``quswapalp(qbit q1, qbit q2, double theta)``
+
+   An arbitrary rotation of ``theta`` in the
+   :math:`\left\{ \ket{01}, \ket{10} \right\}` state subspace.
+
+6. ``qurotz(qbit q, double theta)``
+
+   An arbitrary rotation of ``theta`` about the :math:`Z`-axis of the Bloch sphere.
+   Optimizers should minimize occurrences.

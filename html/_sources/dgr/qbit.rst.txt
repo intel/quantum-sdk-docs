@@ -1,0 +1,59 @@
+Local ``qbit`` Variables
+-------------------------
+
+``qbit`` variables can be declared globally or locally. When the compiler maps the program qubits
+to physical qubits, each ``qbit`` variable will be assigned to a physical qubit.
+Since the compiler cannot guarantee the state that a local ``qbit`` variable is in, local ``qbit`` variables
+must be initialized using ``PrepX``, ``PrepY``, or ``PrepZ`` before being used. At the end of
+the ``quantum_kernel``, the local ``qbit`` variables must be released. This can be achieved
+through measurements or ``release_quantum_state()``.
+
+Note that if using ``release_quantum_state()``, the quantum states are unspecified after the
+function call (see :ref:`Language Extensions<extensions>`). Without releasing the quantum states,
+the physical qubits assigned to the local ``qbit`` variables might be assigned to other local
+``qbit`` variables in a new ``quantum_kernel`` function while still holding the quantum states
+of the out-of-scope variables. The out-of-scope variables' physical qubits will not be assigned
+to unreleased global ``qbit`` variables, however.
+
+In the following example, a local ``qbit`` variable is declared, initialized, and measured.
+
+.. code-block:: c++
+
+   quantum_kernel void kernel() {
+      qbit q;
+      bool b;  // can also be of type cbit
+
+      PrepZ(q);    // prepare the qbit variable before applying gates
+      H(q);
+
+      MeasZ(q, b);  // release the qbit variable at the end of the quantum_kernel
+   }
+
+
+If local ``qbit`` variables are entangled with global ``qbit`` variables, the entanglement persists
+after the local ``qbit`` variables go out of scope. The user must insert gates needed to disentangle the
+local ``qbit`` variables from the global ones before releasing the local variables' quantum
+states.
+
+.. code-block:: c++
+
+   qbit global;
+
+   quantum_kernel void errorExampleEntangledQubits() {
+      qbit local;
+
+      PrepZ(local);    // Prep the qbit variable before applying gates
+      H(local);
+      CNOT(local, global);
+
+      // After local goes out of scope, the physical qubit it was assigned to
+      // is still entangled with global
+   }
+
+The recommended best practice with regards to
+local ``qbit`` variables is therefore to prep them before they are used and insert
+gates to undo the entanglement between local and global ``qbit`` variables before releasing the quantum
+states at the end of ``quantum_kernel`` functions.
+
+For information on how to use local ``qbit`` variables with quantum kernel
+expressions and FLEQ, refer to |FLEQ:LocalQubits|.

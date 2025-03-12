@@ -1,0 +1,35 @@
+.. _issues:
+
+Summary of Known Limitations / Issues
+=====================================
+
+* The maximum number of qubits supported is bounded by the total memory available to the |Intel| Quantum Simulator and is a machine and application dependent quantity. See |GettingStartedGuide:MemoryReqs|. The Tensor Network and Clifford Simulator backends are limited to 256 qubits.
+* All operations on classical variables inside a ``quantum_kernel`` function will be executed at the beginning of that ``quantum_kernel``, unless placed after the final quantum gate in the ``quantum_kernel.`` This applies to ``quantum_kernel`` functions called in the middle of other ``quantum_kernel`` functions, i.e. adding the return value of the interior ``quantum_kernel`` to an integer inside the higher scope ``quantum_kernel`` will be moved to the beginning of the resulting set of instructions.
+  See :ref:`In-lining & quantum_kernel functions<inlining>`.
+* All source code must be located in a single ``.cpp`` file or included through header files.
+* Top-level ``quantum_kernel`` functions cannot support ``qbit`` arguments.
+  See :ref:`In-lining & quantum_kernel functions<inlining>`.
+* For ``quantum_kernel`` functions that use many qubit preparation operations,
+  i.e. significantly more than the number of qubits used, use of ``-O1`` flag is
+  known to dramatically slow down the compilation.
+  See :ref:`Compiling<compiler>`.
+* Custom placement can only be used on global ``qbit`` variables. See :ref:`Placement<placement>`.
+* If the scheduler pass ``-S`` flag is not set, the compiler assumes an
+  all-to-all connection even if a non-all-to-all connectivity is given in the
+  platform configuration ``.json`` file. Conversely, to invoke the ``-S`` flag, the ``-c`` flag must be
+  given. See :ref:`Scheduling<scheduling>`.
+* When the ``-S`` flag is not set and ``-O1`` optimization is set, some
+  ``quantum_kernel`` functions may see additional ``quswapalp`` gate operations
+  at the end of the ``quantum_kernel``. See :ref:`Scheduling<scheduling>`.
+* Users should not call ``MPI_Finalize()`` in the user program. Otherwise, MPI
+  functions will be called after ``MPI_Finalize()``, which is not allowed.
+  See :ref:`Running with MPI<mpi>`.
+* When running a simulation with more than 35 qubits, the ``display_`` and
+  ``get_`` APIs for the ``FullStateSimulator`` might not work properly if
+  the user tries these methods to retrieve or show all ``amplitudes`` or
+  ``probabilities``. See :ref:`Running with MPI<mpi>`.
+* A compilation failure could occur if code which supports exception handling is invoked
+  within a ``quantum_kernel`` function. The compilation error will likely
+  be reported as a result of :emphasis:`invalid branching`. One such case would be the
+  initialization of a quantum simulator within a ``quantum_kernel`` function. To avoid
+  undesirable behavior, it is recommended to initialize the simulator in the ``main()`` function.

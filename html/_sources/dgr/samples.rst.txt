@@ -1,0 +1,104 @@
+.. _samples:
+
+Code Samples
+============
+
+See the ``quantum-examples`` and ``python-quantum-examples`` directories
+in the |IQSDK| root directory for demonstrations of each of the included
+qubit simulators' APIs, demos, sample algorithm implementations and application simulations.
+
+Algorithms and Simulations
+--------------------------
+
+``deutsch_jozsa_q7.cpp``:
+
+   An implementation of the Deutsch-Jozsa algorithm.
+
+``qec_q5.cpp``:
+
+   An implementation of Quantum Error Correction (QEC) on 5 qubits.
+
+``qft.cpp``:
+
+   An implementation of the Quantum Fourier Transform (QFT) and Inverse QFT algorithms.
+
+``dynamic_mbl_q3.cpp``:
+
+   An implementation of Hamiltonian evolution simulating Many Body Localization (MBL).
+
+``tfd_q4_hybrid_demo.cpp``:
+
+   A demonstration of generating Thermofield Double (TFD) state.
+
+``teleport.cpp``:
+
+   A simulation of the procedure to teleport a quantum state.
+
+``qkd_bb84.cpp``:
+
+   A simulation of establishing secure keys through Quantum Key Distribution
+   (QKD) using the BB84 algorithm :cite:p:`BeBr84`.
+
+``qnn_rus_n1.cpp``, ``qnn_rus_nn1.cpp``:
+
+   Examples for simulating small Quantum Neural Networks (QNN).
+
+Programming
+-----------
+
+``ghz.cpp``:
+
+   An implementation of creating a Greenberger-Horne-Zeilinger state (GHZ) using
+   a template approach and compile time recursion to parameterize the number of
+   qubits. The result is a ``quantum_kernel`` function that can be changed to simulate any number
+   of qubits up to a predefined maximum number of qubits at compile time.
+
+``dynamic_param.cpp``:
+
+   A demonstration of using dynamic parameters in ``quantum_kernel`` functions.
+
+``custom_backend.cpp``:
+
+   An example of implementing a user-defined backend qubit simulator.
+
+``iqs_custom_noise.cpp``:
+
+   An example for using the |Intel| Quantum Simulator with a custom noise model.
+
+``custom_backend_mimicking_iqs_custom_noise.cpp``:
+
+   An example implementing user-defined noise in qubits with the |Intel|
+   Quantum Simulator and comparing it to a user-defined backend that implements
+   the same noise model.
+
+``qexpr_ghz.cpp``, ``qexpr_qft.cpp``, ``qexpr_teleport.cpp``:
+
+   Re-implementations of preceding examples using FLEQ quantum kernel
+   expressions (``QExpr``) to simplify and modularize the code.
+
+``state_preparation.cpp``:
+
+   Uses a FLEQ ``DataList`` to prepare a list of qubits according to a string
+   specification of ``n`` basis states.
+
+``pauli_rotations.cpp``:
+
+   Uses a FLEQ ``DataList`` to prepare multi-qubit Pauli rotations,
+   preparations, and measurements given a Pauli string specification.
+
+``ideal_GHZ.cpp``, ``sampled_GHZ.cpp``, ``qd_GHZ.cpp``:
+
+   Several teaching examples demonstrating a development workflow. See |Tutorials|.
+
+``iqs_vs_clifford_comparison.cpp``, ``rep_code_clifford.cpp``:
+
+   A basic example and an advanced example for using the Clifford Simulator backend.
+
+``run_ghz.py``, ``run_qft.py``, ``run_tfd_demo.py``:
+
+   Several examples demonstrating how to use the Python Interface.
+   Each interacts with one of the above examples.
+
+``api_<backend>_test.cpp``:
+
+   A demonstration of the API for each qubit simulator ``<backend>``.

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Branching &#8212; Intel® Quantum SDK API v1.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=45183d27"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Let/get, printing, and exiting" href="utils.html" />
+    <link rel="prev" title="QList" href="qlist.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="branching">
+<span id="id1"></span><h1>Branching<a class="headerlink" href="#branching" title="Link to this heading">¶</a></h1>
+<p>In an ordinary <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> function, it is not possible to use classical <code class="docutils literal notranslate"><span class="pre">if</span></code> statements
+to decide what quantum operations to apply unless the condition can be resolved
+at compile-time. For example, the following code is not supported.</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">quantum_kernel</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">conditional_qk_FAIL</span><span class="p">(</span><span class="n">qbit</span><span class="w"> </span><span class="o">&amp;</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">H</span><span class="p">(</span><span class="n">q</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Classical control <em>is</em> natively supported by quantum kernel expressions, however, via
+the <em>classical if</em> or <code class="docutils literal notranslate"><span class="pre">cIf</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">QExpr</span> <span class="pre">qexpr::cIf(bool</span> <span class="pre">b,</span> <span class="pre">QExpr</span> <span class="pre">condTrue,</span> <span class="pre">QExpr</span> <span class="pre">condFalse)</span></code></p>
+<blockquote>
+<div><p>If the classical boolean value <code class="docutils literal notranslate"><span class="pre">b</span></code> is true, execute the quantum instructions given by <code class="docutils literal notranslate"><span class="pre">condTrue</span></code>; and otherwise execute the instructions given by <code class="docutils literal notranslate"><span class="pre">condFalse</span></code>. The boolean value <code class="docutils literal notranslate"><span class="pre">b</span></code> may be dynamic (need not be resolvable at compile-time).</p>
+</div></blockquote>
+<p>Classical control is the first indication that the <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> type does not just
+represent a simple gate sequence. As an example, the above invalid quantum
+kernel function can be achieved by evaluating the following <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> function:</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">QExpr</span><span class="w"> </span><span class="nf">conditional_qexpr_SUCCESS</span><span class="p">(</span><span class="n">qbit</span><span class="w"> </span><span class="o">&amp;</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_H</span><span class="p">(</span><span class="n">q</span><span class="p">),</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">());</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Though the condition argument <code class="docutils literal notranslate"><span class="pre">b</span></code> to <code class="docutils literal notranslate"><span class="pre">cIf</span></code> can be dynamic, care should be
+taken with unresolved conditionals. Due to compile-time constraints, the
+FLEQ compilation stage of IQC will combinatorally generate all possible QBBs
+from unresolved branches and insert classical branching instructions to select
+amongst them. As a result, the number of QBBs generated by an unresolved
+conditional can grow exponentially, especially when used alongside
+<code class="docutils literal notranslate"><span class="pre">qexpr::join</span></code> or recursion (see <a class="reference internal" href="#recursion"><span class="std std-ref">Recursion</span></a>). This exponential explosion
+can be overcome via separate evaluation calls or through the use of
+<code class="docutils literal notranslate"><span class="pre">qexpr::bind</span></code>; see <a class="reference internal" href="barriers.html#bind"><span class="std std-ref">Barriers and binding</span></a>.</p>
+<p>Two additional variants of <code class="docutils literal notranslate"><span class="pre">cIf</span></code> are also added for convenience:</p>
+<p><code class="docutils literal notranslate"><span class="pre">QExpr</span> <span class="pre">qexpr::cIfTrue(bool</span> <span class="pre">b,</span> <span class="pre">QExpr</span> <span class="pre">condTrue)</span></code></p>
+<blockquote>
+<div><p>If the classical boolean value <code class="docutils literal notranslate"><span class="pre">b</span></code> is true, return  <code class="docutils literal notranslate"><span class="pre">condTrue</span></code>, and otherwise return the identity <code class="docutils literal notranslate"><span class="pre">QExpr</span></code>;
+i.e. equivalent to <code class="docutils literal notranslate"><span class="pre">qexpr::cIf(b,</span> <span class="pre">condTrue,</span> <span class="pre">qexpr::identity())</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">QExpr</span> <span class="pre">qexpr::cIfFalse(bool</span> <span class="pre">b,</span> <span class="pre">QExpr</span> <span class="pre">condFalse)</span></code></p>
+<blockquote>
+<div><p>If the classical boolean value <code class="docutils literal notranslate"><span class="pre">b</span></code> is false, return  <code class="docutils literal notranslate"><span class="pre">condFalse</span></code>, and otherwise return the identity <code class="docutils literal notranslate"><span class="pre">QExpr</span></code>;
+i.e. equivalent to <code class="docutils literal notranslate"><span class="pre">qexpr::cIf(b,</span> <span class="pre">qexpr::identity(),</span> <span class="pre">condFalse)</span></code>.</p>
+</div></blockquote>
+</section>
+<section id="recursion">
+<span id="id2"></span><h1>Recursion<a class="headerlink" href="#recursion" title="Link to this heading">¶</a></h1>
+<p>With the introduction of branching, function recursion is now possible by providing
+exit conditions for recursion, i.e. by acting as a <em>recursion guard</em>. These recursive
+calls are the FLEQ equivalent of loops in standard C++ and represent the single most
+powerful tool for modular code development with FLEQ.</p>
+<p>A quintessential example of a recursive <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> function is one that iterates
+over all the qubits in a <code class="docutils literal notranslate"><span class="pre">QList</span></code> and applies one or more gates to each of them.
+For example, the following function applies a <code class="docutils literal notranslate"><span class="pre">PrepZ</span></code> gate to every qubit in a
+<code class="docutils literal notranslate"><span class="pre">QList</span></code>.</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">QExpr</span><span class="w"> </span><span class="nf">prepAll</span><span class="p">(</span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">qs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">qs</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">(),</span><span class="w">                     </span><span class="c1">// qs.size() == 0</span>
+<span class="w">                    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_PrepZ</span><span class="p">(</span><span class="n">qs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">prepAll</span><span class="p">(</span><span class="n">qs</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="c1">// qs.size() &gt; 0</span>
+<span class="w">  </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>This function uses a conditional <code class="docutils literal notranslate"><span class="pre">cIf</span></code> to determine if the <code class="docutils literal notranslate"><span class="pre">QList</span></code> is empty.
+If it is, it will terminate by returning <code class="docutils literal notranslate"><span class="pre">identity</span></code>. If the <code class="docutils literal notranslate"><span class="pre">QList</span></code>
+is non-empty, the condition resolves to the second branch, which applies <code class="docutils literal notranslate"><span class="pre">_PrepZ</span></code>
+on the first element and recursively calls <code class="docutils literal notranslate"><span class="pre">prepAll</span></code> to the tail of the <code class="docutils literal notranslate"><span class="pre">QList</span></code>.</p>
+<p>For those familiar with imperative-style <code class="docutils literal notranslate"><span class="pre">for</span></code> and
+<code class="docutils literal notranslate"><span class="pre">while</span></code> loops, it may take some practice to master function recursion,
+but the results can be elegant and useful.</p>
+<p>A recursive function is best matched conceptually to a <code class="docutils literal notranslate"><span class="pre">while</span></code> loop with a
+“continue” condition. For example, the
+general structure of a  <code class="docutils literal notranslate"><span class="pre">while</span></code> loop is</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="k">while</span><span class="p">(</span><span class="n">cont</span><span class="p">){</span>
+<span class="w">  </span><span class="o">&lt;</span><span class="n">body</span><span class="o">&gt;</span>
+<span class="w">  </span><span class="n">cont</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">new_cont</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The analogous structure using FLEQ would be</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">QExpr</span><span class="w"> </span><span class="nf">while_analog</span><span class="p">(</span><span class="kt">bool</span><span class="w"> </span><span class="n">cont</span><span class="p">,</span><span class="w"> </span><span class="n">QExpr</span><span class="w"> </span><span class="n">body</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w"> </span><span class="n">new_cont</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">...;</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">cont</span><span class="p">,</span><span class="w"> </span><span class="n">while_analog</span><span class="p">(</span><span class="n">new_cont</span><span class="p">,</span><span class="w"> </span><span class="n">body</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">body</span><span class="p">,</span><span class="w"> </span><span class="c1">//cont == true</span>
+<span class="w">                          </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">()</span><span class="w">                    </span><span class="c1">//cont == false</span>
+<span class="w">            </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Like the <code class="docutils literal notranslate"><span class="pre">while</span></code> loop, the <code class="docutils literal notranslate"><span class="pre">while_analog</span></code> function first checks if the <code class="docutils literal notranslate"><span class="pre">cont</span></code> condition is <code class="docutils literal notranslate"><span class="pre">true</span></code>, in which case it “executes”
+<code class="docutils literal notranslate"><span class="pre">body</span></code>. Then, the <code class="docutils literal notranslate"><span class="pre">while_analog</span></code> continues the loop by making a recursive call with boolean guard <code class="docutils literal notranslate"><span class="pre">new_cont</span></code>. This recursive call is parallel to the <code class="docutils literal notranslate"><span class="pre">while</span></code> loop implicitly looping back and rechecking
+the updated value of <code class="docutils literal notranslate"><span class="pre">cont</span></code>. When the <code class="docutils literal notranslate"><span class="pre">cont</span></code> condition is <code class="docutils literal notranslate"><span class="pre">false</span></code>, the <code class="docutils literal notranslate"><span class="pre">while_analog</span></code> function exits the recursion by returning
+<code class="docutils literal notranslate"><span class="pre">qexpr::identity()</span></code>.</p>
+<p>A <code class="docutils literal notranslate"><span class="pre">for</span></code> loop can be translated into a recursive <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> function in a similar way.</p>
+<p>For nested loops, each loop will require at least one function.
+For example, consider a function that applies a <code class="docutils literal notranslate"><span class="pre">CNOT</span></code> gate to every unique
+pair of qubits in a <code class="docutils literal notranslate"><span class="pre">QList</span></code>. This will require two loops and thus two functions:</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// This function uses the fixed argument q as the control</span>
+<span class="c1">// and loops over each qubit in after_q as the target</span>
+<span class="n">QExpr</span><span class="w"> </span><span class="nf">CNOTOnAll_helper</span><span class="p">(</span><span class="n">qbit</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">after_q</span><span class="p">){</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">after_q</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_CNOT</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">after_q</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="w">                      </span><span class="o">+</span><span class="w"> </span><span class="n">CNOTOnAll_helper</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">after_q</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="c1">// after_q.size() &gt; 0</span>
+<span class="w">                    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">()</span><span class="w">                     </span><span class="c1">// after_q.size() == 0</span>
+<span class="w">                    </span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="c1">// This function loops over every qubit in qs, calling the helper</span>
+<span class="c1">// function on it and every qubit that comes after it</span>
+<span class="n">QExpr</span><span class="w"> </span><span class="nf">CNOTOnAll</span><span class="p">(</span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">qs</span><span class="p">){</span>
+<span class="w">  </span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">q_after</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">qs</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">qs</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                    </span><span class="n">CNOTOnAll_helper</span><span class="p">(</span><span class="n">qs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">q_after</span><span class="p">)</span>
+<span class="w">                      </span><span class="o">+</span><span class="w"> </span><span class="n">CNOTOnAll</span><span class="p">(</span><span class="n">q_after</span><span class="p">),</span><span class="w">           </span><span class="c1">// qs.size() &gt; 0</span>
+<span class="w">                    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">()</span><span class="w">                 </span><span class="c1">// qs.size() == 0</span>
+<span class="w">            </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Note that recursion does not require the function be called inside its body directly;
+rather, it is a matter of the function having a dependency on itself (see <a class="reference internal" href="compilation-overview.html#compilation-overview"><span class="std std-ref">Overview of FLEQ compilation</span></a>), which can occur through other functions called inside the body via mutual recursion.
+For example, consider the following pair of mutually recursive functions, one of
+which applies one sequence of gates to even qubits in a <code class="docutils literal notranslate"><span class="pre">QList</span></code>, and the other
+of which applies another sequence to odd qubits.</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">QExpr</span><span class="w"> </span><span class="nf">oddQubits</span><span class="p">(</span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">qs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIfFalse</span><span class="p">(</span><span class="n">qs</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_X</span><span class="p">(</span><span class="n">qs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">evenQubits</span><span class="p">(</span><span class="n">qs</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+<span class="w">  </span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">QExpr</span><span class="w"> </span><span class="nf">evenQubits</span><span class="p">(</span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">qs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIfFalse</span><span class="p">(</span><span class="n">qs</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_H</span><span class="p">(</span><span class="n">qs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">oddQubits</span><span class="p">(</span><span class="n">qs</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+<span class="w">  </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>It is important to note that all recursion in quantum kernel expressions must be
+able to be unrolled at compile-time. This ensures that quantum
+kernel expressions can be compiled to quantum basic blocks as described in the
+<a class="reference internal" href="intro.html#intro"><span class="std std-ref">Introduction</span></a>. Practically, this means that the arguments to
+conditionals used as recursive guards must all be resolvable at compile-time
+through the FLEQ compilations unrolling mechanism. Examples of such compile-time
+guards include but are not limited to:</p>
+<ul class="simple">
+<li><p>constant integers or boolean values;</p></li>
+<li><p>the size of a <code class="docutils literal notranslate"><span class="pre">QList</span></code>, as in <code class="docutils literal notranslate"><span class="pre">prepAll</span></code> above; or</p></li>
+<li><p>the size or contents of a <code class="docutils literal notranslate"><span class="pre">DataList</span></code> (see <a class="reference internal" href="datalist.html#datalist"><span class="std std-ref">DataList</span></a>).</p></li>
+</ul>
+<p>Users can set the recursion limit via a command-line flag.</p>
+<p><code class="docutils literal notranslate"><span class="pre">-F</span> <span class="pre">recursion-limit-power=&lt;INT&gt;</span></code></p>
+<blockquote>
+<div><p>Sets the FLEQ recursion limit to scale as a power <code class="docutils literal notranslate"><span class="pre">&lt;INT&gt;</span></code> of the number of
+global qubits; default = 1.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">-F</span> <span class="pre">recursion-limit=&lt;INT&gt;</span></code></p>
+<blockquote>
+<div><p>Sets the FLEQ recursion limit to a fixed number <code class="docutils literal notranslate"><span class="pre">&lt;INT&gt;</span></code>; default is the
+maximum of 1000 or <code class="docutils literal notranslate"><span class="pre">&lt;Value</span> <span class="pre">from</span> <span class="pre">power&gt;</span></code>, if set. The <code class="docutils literal notranslate"><span class="pre">recursion-limit</span></code>
+option overrides the <code class="docutils literal notranslate"><span class="pre">recursion-limit-power</span></code> option.</p>
+</div></blockquote>
+<p>FLEQ does not currently support repeat-until-success loops, although they can be
+implemented by evaluating a <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> inside a classical loop. For example,
+consider a repeat-until-success (RUS) loop that applies a quantum kernel
+expression <code class="docutils literal notranslate"><span class="pre">op</span></code> over and over until its measurement result returns 1:</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">QExpr</span><span class="w">  </span><span class="nf">op</span><span class="p">(</span><span class="kt">double</span><span class="w"> </span><span class="n">param</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="o">&amp;</span><span class="w"> </span><span class="n">result</span><span class="p">);</span>
+<span class="kt">double</span><span class="w"> </span><span class="nf">new_param</span><span class="p">(</span><span class="kt">double</span><span class="w"> </span><span class="n">old_param</span><span class="p">);</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">RUS</span><span class="p">(</span><span class="kt">double</span><span class="w"> </span><span class="n">initial_param</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">double</span><span class="w"> </span><span class="n">param</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">initial_param</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w">   </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">result</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">eval_release</span><span class="p">(</span><span class="n">op</span><span class="p">(</span><span class="n">param</span><span class="p">,</span><span class="w"> </span><span class="n">result</span><span class="p">));</span>
+<span class="w">    </span><span class="n">param</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">new_param</span><span class="p">(</span><span class="n">param</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>FLEQ may allow for runtime recursion in future versions.</p>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Intel® Quantum SDK API</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dgr/index.html">Developers Guide and Reference</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">FLEQ Guide and Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="features.html">Features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced.html">Advanced topics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="support.html">Support</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../citations.html">Citations</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">FLEQ Guide and Reference</a><ul>
+  <li><a href="features.html">Features</a><ul>
+      <li>Previous: <a href="qlist.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">QList</span></code></a></li>
+      <li>Next: <a href="utils.html" title="next chapter">Let/get, printing, and exiting</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024 Intel Corporation. All Rights Reserved.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/fleq/branching.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

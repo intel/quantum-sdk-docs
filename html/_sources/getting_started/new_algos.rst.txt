@@ -1,0 +1,43 @@
+.. _new_algos:
+
+Writing New Algorithms
+======================
+
+Writing a new algorithm is as easy as writing C++ code. A basic template and
+example file can be found in ``new_algo_start_here.cpp``. For a new ``.cpp``
+file, the only additions needed to access quantum-specific functionality are:
+
+1. Add the ``#include <clang/Quantum/quintrinsics.h>`` header which defines the
+   quantum gates listed in |DGR:Gates|, and add the
+   ``#include <quantum_full_state_simulator_backend.h>`` header which defines the ``FullStateSimulator``
+   class.
+
+2. Declare the variable(s) that represent your quantum algorithm's qubits as
+   globally defined ``qbit`` data types.
+
+3. Before invoking any function containing quantum instructions, prepare the
+   backend that will serve as the quantum hardware by instantiating an object
+   of the desired class. The ``FullStateSimulator`` class provides access to
+   both the |Intel| Quantum Simulator and a Quantum Dot Simulator as backends.
+   For more details on using the class methods, see |DGR:FullState|,
+   or see |API| for a complete description
+   of the class' methods. For details on using the simulators, see
+   |DGR:FullState| or |DGR:QDSim|.
+
+4. Place all calls to quantum gates inside a function or method, not directly in
+   ``main()``. Add the function specifier ``quantum_kernel`` to the definition
+   of functions and methods including quantum gates or other
+   ``quantum_kernel`` functions.
+
+   These functions can declare and operate on classical (non-quantum) data
+   types using typical scope rules. The compiler will move the classical
+   calculation to have it available to a ``quantum_kernel``
+   while also preventing the classical instruction from being sent to quantum
+   hardware. A ``quantum_kernel`` function can have parameters of ``qbit`` type
+   as long as the logic ultimately resolves unambiguously to a globally defined
+   ``qbit`` variable. See |DGR:Inlining| for a more detailed description.
+
+5. Just like any C++ program, use the ``int main()`` function to run your
+   primary computation. Conceptually, your program is a hybrid of traditional or
+   "classical" components and quantum components. The quantum components are
+   sent to the quantum backend when called in ``main()``.

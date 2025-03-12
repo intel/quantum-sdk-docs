@@ -1,0 +1,169 @@
+.. _user_passes:
+
+Adding Compile-Time External Calls
+===================================
+
+.. _intro_passes:
+
+Introduction
+------------
+
+In order to ensure efficient runtime execution of quantum kernels, the |IQSDK| requires that certain program components are resolvable at compile-time, such as indices into a qubit array and classical if statements that control quantum operations (see :ref:`intro`). This also enables limited usage of random number generation when compiling the initial quantum circuit.
+	
+Compile-Time External Calls allow users to specify functions that should be resolvable at compile-time if possible. If the compiler detects the arguments to a compile-time external call are all constant values, the call will be evaluated at compile-time and replaced by a constant value.
+
+This allows for more flexible and more complex programs to be processed by the |IQC|. In addition, resolving more arguments at compile-time can significantly improve the efficiency of circuit optimizations.
+
+This method does have limitations, e.g. in the case of random number generation. While a random number can be generated when the circuit is initially compiled, this value is "fixed" within the program. There will be no random generation of that particular value when the compiled program is run; it will use the same pre-calculated result each execution.
+
+.. _calling_external_functions:
+
+Calling an External Function
+----------------------------
+
+External functions can be called exactly like a normal function, and the output can be used as an index into a qubit array, as a parameter for a quantum gate, or as an argument to another function, etc.
+
+However, external functions have a few restrictions.
+
+First, both the arguments and return types of external functions must be either doubles or integers, as the |IQSDK| is unable to resolve more complex data types during compile time.
+
+If an external function call cannot be resolved at compile-time, it will be executed at runtime as normal, if possible. If the result of the function call is used as an array index, or otherwise required for compilation, the compiler will throw an error.
+
+External functions are user-defined in a separate library (:ref:`_writing_external_functions`) and must have a forward declaration (with no definition) in the file in which it is used. If a definition is found, the compiler will attempt to inline the function using the given definition.
+	
+A simple quantum kernel with an external function call is shown in the example below.
+
+.. code-block:: c++
+
+    // filename: my_file.cpp
+
+    #include <clang/Quantum/quintrinsics.h>
+
+    qbit q[2];
+    cbit c;
+
+    int test_function();
+    int test_function(int);
+    double test_function(double, double, int);
+
+    quantum_kernel void TestingLibrary(double arg1, double arg2) {
+        // These three functions will be processed at compile-time
+        int a = test_function();
+        int b = test_function(4);
+        double d = test_function(1.0, 2.0, 4);
+
+        // This function will be processed at run time as the arg1 will not
+        // be resolvable at compile time.
+        int c = test_function(arg1);
+        RXY(q[0], a, b);
+        RXY(q[0], a, c);
+        RX(q[0], d);
+        RY(q[0], d);
+    }
+
+    int TestingLibraryClassical() {
+        // Will not be processed at compile time as it is not
+        // included in a quantum kernel.
+        test_function(4, 5);
+
+        return 0;
+    }
+
+    int main(){
+    
+        TestingLibrary(0, 1);
+        int i = TestingLibraryClassical();
+
+        return i;
+    }
+
+
+
+To compile a program using an external library, the user should add the flags :code:`-g --external-function-libs -g <path/to/library1>,<path/to/library2>...` to the driver program. These two `-g` arguments must be consecutive. Combined in a single command it looks like the following:
+
+.. code-block:: console
+
+    intel-quantum-compiler -g --external-function-libs -g /path/to/library/libtest-lib.so program.cpp
+
+.. _writing_external_functions:
+
+Writing an External Function Library
+------------------------------------
+
+Writing the external library to be passed to the Intel Quantum Compiler is similar to writing a library for any other C++ application. For example, these functions can use other global variables in the library, and call other functions defined in the library. However, these functions will not be able to access any information of the quantum program. There are some restrictions on how the functions must be defined.
+
+The main restriction is that a function defined in the external library must only use double arguments, or an aggregate :code:`ExternalFunctionArguments` type argument.  While a function can be defined in the program to use integers, the compiler will attempt to coerce the argument into a double when evaluating a function defined in the external library. An example of this coercion is shown below:
+
+.. code-block:: c++
+
+    int test_function(int);
+    int test_function(double);
+
+Both functions will resolve to the identically named function (with example definition):
+
+.. code-block:: c++
+
+    int test_function(double arg) {
+        return arg * 5 / 2;
+    }
+
+in the library. The function will also not be differentiated based on the return value. While the function can return either an integer or a double value, to avoid errors this must match the output value of the identically named function in the source file. Otherwise, the handling of the resulting value will not be correct.
+
+Advanced Compile-Time External Call Handling
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If users need more flexibility, external functions can be defined using the :code:`ExternalFunctionArguments` struct. This should be used in cases where integer and double arguments need to be differentiated, or where more than 10 arguments are required. :code:`ExternalFunctionArguments` is a struct with two fields: an :code:`Integers` field consisting of a vector of integers; and a :code:`Doubles` field consisting of a vector of doubles. This struct should only be used when defining a function in the external library.
+
+.. code-block:: c++
+
+    struct ExternalFunctionArguments {
+        std::vector<int> Integers;
+        std::vector<double> Doubles;
+    };
+
+This struct should :emphasis:`not` be used in the main quantum program.
+
+Here is an example of a called function from the :strong:`main quantum program`` that computes a weighted average of five numbers that is defined in the main function:
+
+.. code-block:: c++
+
+    double weighted_average_1 = weighted_average(2, 0.2, 3, 0.2, 4, 0.6);
+    double weighted_average_2 = weighted_average(2, 0.2, 3, 0.2, 4, 0.2, 5, 0.4);
+
+Using the basic method is arduous, and would require considering many cases, potentially exceeding 10 arguments. It is much simpler to use the :code:`ExternalFunctionArguments` struct when defining the function in the external library.
+
+In this example the following functions are defined in the :strong:`external library`:
+
+.. code-block:: c++
+
+    double weighted_average(double, double);
+    double weighted_average(double, double, double, double);
+    double weighted_average(ExternalFunctionArguments &Args);
+
+A function with a matching name, but which does not have a matching type signature to any other function in the library will use call a function where the only argument is an :code:`ExternalFunctionArguments` struct, with the arguments sorted into their respective vector (i.e. integers vs doubles) in the order they appear. In this case, any function call that does not have two or four arguments will call the function ``weighted_average(ExternalFunctionArguments &Args)``.
+
+After determining that all of the arguments are constant values, the function where the arguments have been replaced with a struct will be called. In the IR this will be reflected as a replacement of every use of the call result with the constant result rather than the variable. Calls in the user-facing quantum program that will be replaced by an external functions will not use the :code:`ExternalFunctionArguments` struct; it is used only as a connective piece for a more complicated function.
+
+However, the called function must handle the arguments passed to the struct when defined in the library. In particular, the function must handle the given arguments in the two vectors. One reason for doing this may be to call different functions based on different argument counts or distribution of arguments. Example:
+
+.. code-block:: c++
+
+    double weighted_average(ExternalFunctionArguments &Args) {
+        if (Args.Integers.size() == 0 && Args.Doubles.size() != 0) {
+            return handle_integers(Args.Integers);
+        } else if (Args.Doubles.size() == 0  && Args.Integers.size() != 0) {
+            return handle_doubles(Args.Doubles);
+        } else {
+            double total = 0;
+            for (int Idx = 0; Idx < Args.Integers.size(); Idx++) {
+                if (Idx < Args.Doubles.size()) {
+                    total += Args.Doubles[Idx] * Args.Integers[Idx];
+                } else {
+                    total += Args.Integers[Idx];
+                }
+            }
+            return total;
+        }
+    }
+
+In this example, we call another function to handle the case where we have only integers, or only doubles. In the other case, it multiples the corresponding integer and double values.

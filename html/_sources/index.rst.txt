@@ -1,0 +1,23 @@
+##############################################
+|Intel| Quantum Software Development Kit (SDK)
+##############################################
+
+
+.. toctree::
+    :maxdepth: 2
+
+    getting_started/index
+    dgr/index
+    fleq/index
+    tutorial/index
+    api/index
+    citations
+
+.. only:: html
+
+   Indices and tables
+   ==================
+
+   * :ref:`genindex`
+   * :ref:`modindex`
+   * :ref:`search`

@@ -1,0 +1,202 @@
+
+
+
+Let/get, printing, and exiting
+**********************************
+
+This section covers some useful builtin utilities for working with quantum kernel
+expressions.
+
+.. _let-get:
+
+Let/get
+--------
+
+All variables of type ``QExpr`` are constant, which means that they cannot be assigned using ordinary C++ assignment statements. FLEQ provides several ways to assign temporary variables to help break up large quantum kernel expressions.
+
+#. Write a function that returns a ``QExpr``, as illustrated throughout this document.
+#. Use ``qexpr::let`` and ``qexpr::get`` to assign a ``QExpr`` to a constant string name.
+
+``void qexpr::let(const char key[], QExpr e)``
+
+  Associate a key value ``key`` to the quantum kernel expression ``e``.
+
+``QExpr qexpr::get(const char key[])``
+
+  Return the quantum kernel expression associated with ``key``.
+
+As an example:
+
+.. code-block:: C++
+
+  qexpr::let("coin_toss", qexpr::_PrepZ(q) + qexpr::_H(q) + qexpr::_MeasZ(q,c));
+
+The variable ``coin_toss`` can then be recalled later in the program with the ``get`` function:
+
+.. code-block:: C++
+
+  qexpr::eval_hold(qexpr::cIfTrue(b, qexpr::get("coin_toss")));
+
+The scope of a ``let`` call for a given key value is as local as possible. If called inside
+a function with no traditional C++ branching, the scope is contained within that function.
+Thus, if the function recurses, the definition corresponding to a given key value is as
+defined in that recursive iteration. For example, consider the following function:
+
+.. code-block:: C++
+
+  QExpr recursive_let(qlist::QList qs, double angle){
+
+    qexpr::let("rotation", qexpr::_RZ(qs[0], angle / (double)qs.size()));
+
+    return qexpr::cIf(qs.size() > 0,
+                    qexpr::get("rotation") + recursive_let(qs + 1, angle),
+                    qexpr::identity()
+                  );
+  }
+
+In the above, the ``_RZ`` angle for the key ``"rotation"`` is dependent on the size of
+``qs`` as one would expect. If the function contains traditional C++ branching, then
+the scope of the key value is the containing branch of the code (i.e. within the
+same LLVM IR Basic Block). Best practice is to not use ``let`` and ``get`` with
+C++ branching (see :ref:`limitations`).
+
+.. _printing:
+
+Printing
+---------
+
+Since quantum kernel expressions can become quite large, especially with recursion and branching, it is often useful to
+check  what a ``QExpr`` evaluates to without having to inspect intermediate LLVM
+files or the final circuit diagram.  Likewise, one may also want to print messages
+at different points in the building of quantum logic for an evaluation call. For
+this, FLEQ introduces two compile-time printing functions:
+
+``QExpr qexpr::printQuantumLogic(QExpr e)``
+
+  At compile-time, print out a representation of the quantum logic associated with the quantum kernel expression ``e``, and then return ``e``.
+
+``QExpr qexpr::printDataList(datalist::DataList d, QExpr e)``
+
+  At compile-time, print out the data list ``d`` as resolved during the evaluation build
+  (see :ref:`datalist`), and return the quantum kernel expression ``e``.
+
+Both functions return their quantum kernel expression argument ``e``, but they
+trigger a compile-time message that is added to the FLEQ compilation print
+buffer for the argument's evaluation call. Once that evaluation call is fully
+built, the print buffer is displayed. The ordering in which messages in the
+print buffer are displayed is a topological ordering of the print nodes in the
+underlying graph representation of the evaluation call (see
+:ref:`compilation-overview`). For example: nested calls to ``printDataList`` or
+``printQuantumLogic`` will be displayed from the outside in:
+
+.. code-block:: C++
+
+    qexpr::eval_hold(qexpr::printDataList("Prints First\n",
+                     qexpr::printDataList("Prints Second\n",
+                     qexpr::identity())));
+
+However, when separate print functions are combined with a join, they are
+displayed in reverse order:
+
+.. code-block:: C++
+
+    qexpr::eval_hold(qexpr::printDataList("Prints Second\n", qexpr::identity())
+                   + qexpr::printDataList("Prints First\n",  qexpr::identity()));
+
+There are no guarantees on the order in which separate evaluation
+calls are built.
+
+While ``printQuantumLogic`` prints a representation of the quantum logic of
+the passed ``QExpr``, it does not capture the classical branching or any other classical
+structure, so each unique QBB attached to a given evaluation call is printed as a
+separate node. The representation used is that of the *PCOAST graph* as described in
+:cite:p:`PSIW23`; also see :ref:`compilation-overview`. The PCOAST graph is used as an intermediate representation (IR)
+for each generated QBB, and is synthesized into a quantum gate sequence later
+in IQC compilation.
+
+A PCOAST graph is centered around Pauli operator representations
+of the quantum logic and as such does require some interpretation to understand. The basic
+features of the printed PCOAST graph for a given node are:
+
+``QBB IR name``
+
+  The QBB name attached to this PCOAST graph as found in the LLVM IR. This is a
+  means to verify the classical branching is translated appropriately, although
+  it does require the ability of the user to read and parse the textual IR;
+  see :ref:`debug`.
+
+``Qubit mapping``
+
+  Provides the mapping of declared qubits to a numerical index.
+
+``Global Phase``
+
+  The global phase associated with the contained quantum logic.
+
+``List of Elements``
+
+  The list of non-Clifford PCOAST nodes in the PCOAST graph in sequential order.
+
+``End Frame``
+
+  A residual Clifford unitary applied at the end of the quantum operator encoded in a Pauli frame/tableau :cite:p:`PSIW23`.
+
+
+These compile-time printing features can be turned on and off via the command-line flag, ``-F print=<OPT>``.
+
+``OPT`` can be one of four options:
+
+ * ``always`` - always print the buffer to screen for compilation failure and success
+
+ * ``fail`` - only print the buffer on failure to compile an evaluation call
+
+ * ``success`` - only print the buffer on successful compilation of an evaluation call
+
+ * ``never`` - never print the buffer to screen for compilation failure or success
+
+.. _exiting:
+
+Exiting
+--------
+
+Because of its functional methodology, branching in FLEQ requires all possibilities be
+handled, i.e. a default outcome must be explicitly defined. In many cases, one might want
+that default to represent an error or undesired behavior. To this end, FLEQ introduces
+two functions that exit and display an error message:
+
+``QExpr qexpr::exitAtCompile(datalist::Datalist err = "")``
+
+  When evaluated, adds ``err`` to the print buffer and throws a compile-time error
+  after the evaluation is built (to fully populate the print buffer) or a different failure point is found.
+  This is understood as a failure with respects to the print flags. In the case of ``printQuantumLogic``, an
+  ``exitAtCompile`` node will be appear empty and will "poison" nodes which depend on it. For example,
+  a ``qexpr::join`` between ``exitAtCompile`` and any other ``QExpr`` will also appear as empty. The only
+  exception is ``qexpr::cIf`` where only the poisoned branch will appear as empty.
+
+``QExpr qexpr::exitAtRuntime(datalist::Datalist err = "")``
+
+  Returns a ``QExpr`` that, when encountered during runtime, throws a runtime error with the error message ``err``.
+  ``exitAtRuntime`` will also poison nodes which depended on it up to ``qexpr::cIf``.
+
+Both are intended to be used in conjunction with ``qexpr::cIf()``. The distinction between the two
+is when the exit is triggered. If the branching condition is not intended to be resolved by
+the compiler, one should use ``exitAtRuntime()`` so that a quantum runtime exit call is
+inserted in the appropriate branch(es) along with the passed exit message to be printed upon
+reaching that branch at runtime. However, if one expects said condition to be resolved by the
+compiler, one should use ``exitAtCompile``.
+
+For example, the following function compares a character against ``0``, ``1``,
+``+``, or ``-``, and prepares a qubit in the specified state. If any other
+character is given as input, the function will return a compile-time error.
+
+.. code-block:: C++
+
+  QExpr stateToQExpr(qbit& q, const char c) {
+    return
+        qexpr::cIf(c == '0', qexpr::_PrepZ(q),
+        qexpr::cIf(c == '1', qexpr::_PrepZ(q) + qexpr::_X(q),
+        qexpr::cIf(c == '+', qexpr::_PrepZ(q) + qexpr::_H(q),
+        qexpr::cIf(c == '-', qexpr::_PrepZ(q) + qexpr::_X(q) + qexpr::_H(q),
+        qexpr::exitAtCompile("Expected a character in the set {0, 1, +, -}.")
+        ))));
+  }

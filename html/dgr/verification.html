@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Formal Verification in the Intel® Quantum SDK &#8212; Intel® Quantum SDK API v1.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=45183d27"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Support and Bug Reporting" href="support.html" />
+    <link rel="prev" title="iqsdk::CbitVector class" href="cbit_vector.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="formal-verification-in-the-iqsdk">
+<h1>Formal Verification in the Intel® Quantum SDK<a class="headerlink" href="#formal-verification-in-the-iqsdk" title="Link to this heading">¶</a></h1>
+<section id="compiler-correctness-and-the-testing-problem">
+<h2>Compiler Correctness and the Testing Problem<a class="headerlink" href="#compiler-correctness-and-the-testing-problem" title="Link to this heading">¶</a></h2>
+<p>The Intel® Quantum Compiler (IQC) transforms a source program, written in C++,
+into a form compatible with the quantum runtime (QRT). The compiler includes
+stages such as unrolling, optimization, synthesis, placement, and routing, to
+ensure that the resulting program can be seamlessly executed on any number of
+quantum backends. As a result, the compiled program is structurally quite
+different from the source program, even though a user expects the two to act the
+same. The property that source and target programs always have the same behavior
+is called <em>compiler correctness</em>.</p>
+<p>IQC uses extensive testing and robust software development practices to ensure
+compiler correctness. Unfortunately, compilers always have the potential for
+bugs, and analysis has shown that bugs do indeed arise even in widespread and
+well-tested quantum compiler and software stacks <span id="id1">[<a class="reference internal" href="../citations.html#id41" title="Jiyuan Wang, Qian Zhang, Guoqing Harry Xu, and Miryung Kim. Qdiff: differential testing of quantum software stacks. In 2021 36th IEEE/ACM International Conference on Automated Software Engineering (ASE), 692–704. IEEE, 2021.">WZXK21</a>]</span>
+<span id="id2">[<a class="reference internal" href="../citations.html#id42" title="Matteo Paltenghi and Michael Pradel. Bugs in quantum computing platforms: an empirical study. Proceedings of the ACM on Programming Languages, 6(OOPSLA1):1–27, 2022.">PP22</a>]</span> <span id="id3">[<a class="reference internal" href="../citations.html#id43" title="Matteo Paltenghi and Michael Pradel. Morphq: metamorphic testing of the qiskit quantum computing platform. In 2023 IEEE/ACM 45th International Conference on Software Engineering (ICSE), 2413–2424. IEEE, 2023.">PP23</a>]</span>. In fact, quantum compilers are uniquely
+susceptible to certain kinds of bugs.</p>
+<ol class="arabic simple">
+<li><p>It is difficult for the average user to examine a compiled program and
+determine if it acts the same as their original source program. For example,
+a source program that uses a common hardware-independent gate set like Clifford + T will be
+compiled to a program that uses gates native to quantum dots
+such as <code class="docutils literal notranslate"><span class="pre">qurotxy</span></code> and <code class="docutils literal notranslate"><span class="pre">quswapalp</span></code> (<a class="reference internal" href="gates.html#native"><span class="std std-ref">Quantum Dot Qubit Gates</span></a>).</p></li>
+<li><p>Quantum circuit optimizations are based on advanced mathematical analysis
+like PCOAST <span id="id4">[<a class="reference internal" href="../citations.html#id5" title="Jennifer Paykin, Albert T. Schmitz, Mohannad Ibrahim, Xin-Chuan Wu, and A. Y. Matsuura. Pcoast: a pauli-based quantum circuit optimization framework. In 2023 IEEE International Conference on Quantum Computing and Engineering (QCE), volume 01, 715-726. 2023. doi:10.1109/QCE57702.2023.00087.">PSI+23</a>]</span> <span id="id5">[<a class="reference internal" href="../citations.html#id6" title="Albert T. Schmitz, Mohannad Ibrahim, Nicolas P. D. Sawaya, Gian Giacomo Guerreschi, Jennifer Paykin, Xin-Chuan Wu, and A. Y. Matsuura. Optimization at the interface of unitary and non-unitary quantum operations in pcoast. In 2023 IEEE International Conference on Quantum Computing and Engineering (QCE), volume 01, 727-738. 2023. doi:10.1109/QCE57702.2023.00088.">SIS+23</a>]</span>, which are computationally
+expensive to exhaustively test and analyze.</p></li>
+<li><p>Conventional software testing is typically performed on classical machines,
+and thus requires efficient simulation. As a result, while testing can be
+useful for programs with small numbers of qubits, it is not possible to
+apply the same techniques to programs with large numbers of qubits.</p></li>
+</ol>
+</section>
+<section id="validation-at-scale">
+<h2>Validation at Scale<a class="headerlink" href="#validation-at-scale" title="Link to this heading">¶</a></h2>
+<p>To complement testing and software development practices, IQC incorporates
+<em>formal verification</em>. Formal verification refers to a range of techniques to
+ensure a software or hardware system adheres to a specification. While testing
+can check correctness for a finite number of inputs to a compiler, formal
+verification can reason about compiler correctness for <em>all</em> possible inputs.
+Using proof assistants and high-level reasoning techniques like induction,
+formal verification can achieve this in a <em>scalable</em> manner, without the need to
+exhaustively check all inputs. This scalability is critical for quantum
+compilers due to the exponential cost of testing programs with large numbers of
+qubits.</p>
+<p>Formal verification of the IQC is designed to be both <em>scalable</em> and <em>modular</em>.
+At the time of this release, the formally verified components include the
+representation of Pauli operators used extensively in PCOAST optimizations.
+However, the modular design means that future work can easily accommodate other
+formally verified components in future releases.</p>
+</section>
+<section id="certicoast">
+<h2>CertiCOAST<a class="headerlink" href="#certicoast" title="Link to this heading">¶</a></h2>
+<p>IQC leverages the <a class="reference external" href="https://coq.inria.fr/">Coq proof assistant</a>, a mature
+theorem prover that specializes in higher-order reasoning, for formal
+verification. Our approach involves the following steps:</p>
+<ol class="arabic simple">
+<li><p>First, we model IQC components in the Coq proof assistant and prove
+them correct. For example, we model Pauli operators (used extensively in
+PCOAST optimizations) as data structures and give them semantics in terms
+of Pauli matrices. For now, we focus on verifying PCOAST optimizations.</p></li>
+<li><p>Next, we use CertiCoq <span id="id6">[<a class="reference internal" href="../citations.html#id44" title="Abhishek Anand, Andrew Appel, Greg Morrisett, Zoe Paraskevopoulou, Randy Pollack, Olivier Savary Belanger, Matthieu Sozeau, and Matthew Weaver. Certicoq: a verified compiler for coq. In The third international workshop on Coq for programming languages (CoqPL). 2017.">AAM+17</a>]</span> <span id="id7">[<a class="reference internal" href="../citations.html#id45" title="Joomy Korkut, Kathrin Stark, and Andrew W Appel. A verified foreign function interface between coq and c. Proceedings of the ACM on Programming Languages, 9(POPL):687–717, 2025.">KSA25</a>]</span> to compile these
+components to C. We wrap these operators in a C++ library and integrate
+them into the IQC. We refer to these compiled C++ libraries as
+<em>CertiCOAST</em>—a certified implementation of PCOAST optimizations.</p></li>
+</ol>
+<p>To access the Intel® Quantum SDK with formally verified components, use the
+<cite>-V</cite> flag during compilation.</p>
+<p>Note that formally verified components are not enabled by default because
+they are less optimized compared to the default components, and thus lead to
+longer compilation times—a trade-off between compiler time and assurance of
+compiler correctness.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Intel® Quantum SDK API</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Developers Guide and Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="attributions.html">How to Cite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="intro_to_QC.html">Introduction to Quantum Computing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html">Using the Intel® Quantum SDK</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backends.html">Backends</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="advanced.html">Advanced Topics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="support.html">Support and Bug Reporting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../fleq/index.html">FLEQ Guide and Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../citations.html">Citations</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Developers Guide and Reference</a><ul>
+  <li><a href="advanced.html">Advanced Topics</a><ul>
+      <li>Previous: <a href="cbit_vector.html" title="previous chapter"><code class="docutils literal notranslate"><span class="pre">iqsdk::CbitVector</span></code> class</a></li>
+      <li>Next: <a href="support.html" title="next chapter">Support and Bug Reporting</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024 Intel Corporation. All Rights Reserved.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/dgr/verification.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

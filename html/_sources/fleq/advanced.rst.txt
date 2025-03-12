@@ -1,0 +1,14 @@
+
+Advanced topics
+***************
+
+
+.. toctree::
+   :maxdepth: 3
+   :caption: Contents:
+
+   classical-quantum-ordering
+   higher-order
+   dsl
+   debugging
+   compilation-overview

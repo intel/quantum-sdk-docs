@@ -1,0 +1,385 @@
+.. _python_model:
+
+Python Interface
+================
+
+.. contents::
+   :local:
+   :depth: 3
+
+.. _intro_python:
+
+Introduction
+------------
+
+The Python Interface provides users a way to run the |IQSDK| using
+Python3, through the ``intelqsdk.cbindings`` library. There are two modes for interacting with
+Python:
+
+1. Write quantum circuits in OpenQASM 2.0 -- write a quantum circuit,
+   and convert that to a .cpp file that has ``quantum_kernel`` functions,
+   compile, and use the ``intelqsdk.cbindings`` library to run the ``quantum_kernel`` functions
+   and call APIs, all from within Python.
+
+2. Write ``quantum_kernel`` functions in C++, compile to a ``.so`` file, and call
+   APIs from Python.
+
+The Python Interface is installed in a virtual environment placed alongside the compiler
+in the ``virtualenv`` directory.
+To run Python scripts using the ``intelqsdk.cbindings`` library, use either
+
+.. code-block:: console
+
+   $ source <path to Intel Quantum SDK>/virtualenv/bin/activate
+
+or call the script with ``python3`` located at
+
+.. code-block:: console
+
+   $ <path to Intel Quantum SDK>/virtualenv/bin/python3
+
+.. _openqasm_python:
+
+Python via OpenQASM 2.0
+-----------------------
+
+Procedure
+^^^^^^^^^
+
+Step 1: Write quantum programs
+""""""""""""""""""""""""""""""
+
+Using OpenQASM2.0, or alternatively, transpile the Python program into
+OpenQASM2.0, with the user's choice of quantum programming package. As long as the
+program can be turned into a ``.qasm`` file, the Bridge library will be able to
+translate it to a C++ source file for the |IQSDK|.
+
+At the beginning of the Python script, include the following lines:
+
+.. code-block:: python
+
+   from intelqsdk.cbindings import *
+   loadSdk("/path/to/file.so", sdk_name)
+
+``loadSdk``needs to be called before calling other functions or creating objects from
+``intelqsdk.cbindings`` library.
+
+
+The ``sdk_name`` is the user-created reference string given to this ``.so``
+library. Later on, when calling functions from this library or referencing
+``cbit``/``qbit`` variables, pass this identifier to indicate which library to
+use. Users can also access multiple ``.so`` libraries to call functions
+or reference ``cbit``/``qbit`` variables from each library.
+
+Step 2: Write the Python script
+"""""""""""""""""""""""""""""""
+
+First, import several modules:
+
+.. code-block:: python
+
+   import intelqsdk.cbindings
+   from openqasm_bridge.v2 import translate
+
+Next, use Bridge to translate the OpenQASM file to C++:
+
+.. code-block:: python
+
+   with open('example.qasm', 'r', encoding='utf8') as input_file:
+       input_string: str = input_file.read()
+
+   translated: list[str] = translate(input_string, kernel_name='my_kernel')
+
+   with open('example.cpp', 'w', encoding='utf8') as output_file:
+       for line in translated:
+           output_file.write(line + "\n")
+
+Now, compile the translated C++ code:
+
+.. code-block:: python
+
+   compiler_path = "<path to Intel Quantum SDK>/intel-quantum-compiler"
+   intelqsdk.cbindings.compileProgram(compiler_path, "example.cpp", "-s", sdk_name)
+
+From here, the user can start calling APIs to set up the simulator and run the quantum
+program. For example,
+
+.. code-block:: python
+
+   iqs_config = intelqsdk.cbindings.IqsConfig()
+   iqs_config.num_qubits = 5
+   iqs_config.simulation_type = "noiseless"
+   iqs_device = intelqsdk.cbindings.FullStateSimulator(iqs_config)
+   iqs_device.ready()
+   intelqsdk.cbindings.callCppFunction("my_kernel", sdk_name)
+   qbit_ref = intelqsdk.cbindings.RefVec()
+   for i in range(5):
+       qbit_ref.append(intelqsdk.cbindings.QbitRef("q", i, sdk_name).get_ref())
+   probabilities = iqs_device.getProbabilities(qbit_ref)
+   intelqsdk.cbindings.FullStateSimulator.displayProbabilities(probabilities, qbit_ref)
+
+.. _so_python:
+
+Compiling ``quantum_kernel`` to Shared Library (``.so``)
+--------------------------------------------------------
+
+Procedure
+^^^^^^^^^
+
+Step 1: Write ``quantum_kernel`` functions in C++
+"""""""""""""""""""""""""""""""""""""""""""""""""
+
+Given a C++ source file, ``quantum_algorithm.cpp``,
+
+Step 2: Compile the source program to ``.so``
+"""""""""""""""""""""""""""""""""""""""""""""
+
+Compile the source program using the ``-s`` flag to compile to
+``<source_program>.so``. For example,
+
+.. code-block:: console
+
+   $ <path to Intel Quantum SDK>/intel-quantum-compiler -s quantum_algorithm.cpp
+
+Alternatively, in the Python script, compile and load the ``.so`` file. It is
+assumed that the output directory is the same as the directory of the C++ file
+when loading the ``.so`` file.
+
+.. code-block:: python
+
+   intelqsdk.cbindings.compileProgram("<path to Intel Quantum SDK>/intel-quantum-compiler", "path/to/cpp_file", "flags", sdk_name)
+
+
+Step 3: Write the Python script which calls the APIs
+""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Next, set up a simulation device by using the following template:
+
+.. code-block:: python
+
+   # number of qubits
+   N = 4
+   iqs_config = IqsConfig()
+   # set the number of qubits for the simulation config
+   iqs_config.num_qubits = N
+   # choose the type of noise model
+   iqs_config.simulation_type = "noiseless"
+   iqs_config.synchronous = False
+   iqs_device = FullStateSimulator(iqs_config)
+   iqs_device.ready()
+
+Then, create a Python equivalent of the C++ objects used by ``intelqsdk.cbindings``:
+
+.. code-block:: python
+
+   qids = RefVec()
+   cbits = []
+   for i in range(N):
+       cbits.append(CbitRef("CReg", i, sdk_name))
+       qids.append(QbitRef("QubitReg", i, sdk_name).get_ref())
+
+Call APIs which form the quantum circuit:
+
+.. code-block:: python
+
+   # Prepare all qubits in the 0 state
+   callCppFunction("prepZAll", sdk_name)
+   # Apply QFT
+   callCppFunction("qft", sdk_name)
+   # Apply the inverse of QFT, effectively applying an Identity
+   callCppFunction("qft_inverse", sdk_name)
+
+Call APIs to get the probabilities and measurement results:
+
+.. code-block:: python
+
+   probs = iqs_device.getProbabilities(qids)
+   amplitudes = iqs_device.getAmplitudes(qids)
+   callCppFunction("measZAll", sdk_name)
+
+   print("\nMeasurements:")
+   for cbit in cbits:
+       print(cbit.value())
+
+   print("\nProbabilities printed with QRT API")
+   # Expect to see |0000> to have a probability of 1
+   # since an identity has been applied
+   FullStateSimulator.displayProbabilities(probs, qids)
+
+   # Required wait since device is asynchronous
+   iqs_device.wait()
+
+How to get cbit values after running ``quantum_kernel`` functions?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Create a ``CbitRef`` object. For example, if there are the following global
+variables in the C++ source:
+
+.. code-block:: c++
+
+   cbit c0;
+   cbit c_array[3];
+
+then in the Python script, declare the following two variables:
+
+.. code-block:: python
+
+   cbit_c0 = intelqsdk.cbindings.CbitRef("c0", sdk_name)  # This refers to c0
+   cbit_c_array = intelqsdk.cbindings.CbitRef("c_array", 1, sdk_name) # This refers to c_array[1]
+
+To get the value of ``cbit``, call the ``value()`` function on the ``CbitRef``
+object:
+
+.. code-block:: python
+
+   bool_val = cbit_c0.value() # returns a bool representing the value of the cbit
+
+
+How to get references to qbit variables to pass to runtime APIs?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Create an ``QbitRef`` object. For example, if there are the following global
+variables in the C++ source:
+
+.. code-block:: c++
+
+   qbit q_array[3];
+   qbit q0;
+
+In the Python script, declare the following two variables:
+
+.. code-block:: python
+
+   qbit_q0 = intelqsdk.cbindings.QbitRef("q0", sdk_name) # This refers to q0
+   qbit_q_array = intelqsdk.cbindings.QbitRef("q_array", 2, sdk_name) # This refers to q_array[2]
+
+Then ``qbit_q0.get_ref()`` returns an Python object that can be used as a
+``std::reference_wrapper<qbit>``.
+
+Alternatively, make a ``RefVec`` to get a Python object that can be used
+as a ``std::vector<std::reference_wrapper<qbit>>``. For example,
+
+.. code-block:: python
+
+   refvec = intelqsdk.cbindings.RefVec()
+   refvec.append(qbit_q0.get_ref())
+   refvec.append(qbit_q_array.get_ref())
+
+Also, ``qbit_q0.value()`` returns the physical qubit mapped to by this program qubit.
+
+.. code-block:: python
+
+   print(qbit_q0.value())
+
+Python objects and the corresponding C++ objects
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: c++
+
+   DoubleVec - std::vector<double>
+   ComplexVec - std::vector<std::complex<double>>
+   SamplesVec - std::vector<std::vector<int>>
+   SampleVec - std::vector<int>
+   BoolVec - std::vector<bool>
+   IntVec - std::vector<int>
+   RefVec - std::vector<std::reference_wrapper<qbit>>
+   QssDoubleMap - QssMap<double>
+   QssComplexMap - QssMap<std::complex<double>>
+   QssIndexVec -  std::vector<QssIndex>
+   QssUnsignedIntMap - QssMap<std::unsigned int>
+
+C++ classes that can be imported
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: c++
+
+   QRT_ERROR_T
+   DeviceConfig
+   IqsConfig
+   TensorNetworkConfig
+   ErrSpec1Q
+   ErrSpec2Q
+   ErrSpecIdle
+   ErrorRates
+   GateTimes
+   CliffordSimulatorConfig
+   QssIndex
+   Device
+   FullStateSimulator
+   CustomInterface
+   TensorNetworkSimulator
+   CliffordSimulator
+
+C++ functions that can be imported
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: c++
+
+   qssMapToVector<double>
+   qssMapToVector<std::complex<double>>
+   qssMapVectorToMap<double>
+   qssMapVectorToMap<std::complex<double>>
+
+Usage examples
+^^^^^^^^^^^^^^
+Suppose the user has an instance of ``intelqsdk.cbindings.FullStateSimulator`` called
+``iqs_device``:
+
+.. code-block:: python
+
+   iqs_device.getProbabilities(qids) # returns a DoubleVec
+   iqs_device.getAmplitudes(qids) # returns a ComplexVec
+   iqs_device.getProbabilities(qids, QssIndexVec()) # returns a QssDoubleMap
+   iqs_device.getAmplitudes(qids, QssIndexVec()) # returns a QssComplexMap
+   iqs_device.getSamples(num_samples, qids) # returns a SamplesVec
+   iqs_device.getSingleQubitProbs(qids) # returns a DoubleVec
+
+Example of using a map from C++:
+
+.. code-block:: python
+
+   #-- Iterating through a map in C++ gives a (key, value) pair --#
+   for prob in iqs_device.getProbabilities(qids, QssIndexVec()):
+       print(prob.key().getIndex(), prob.data())
+
+.. _custom_backend_python:
+
+Using a Custom Backend with the Python Interface
+------------------------------------------------
+
+To use a custom backend with the Python Interface,
+create a Python class that derives from the ``CustomInterface`` class
+in the ``intelqsdk.cbindings`` module. In this class,
+implement the ``RXY``, ``RZ``, ``SwapA``, ``CPhase``, ``PrepZ``, and ``MeasZ`` methods, and add
+a constructor for the Python class.
+
+The following example assumes the user has defined a Python class ``MySimulator``:
+
+.. code-block:: python
+
+   custom_device_id = "custom device"
+   CustomSimulator.registerCustomInterface(MySimulator, custom_device_id, <args>) // args is optional, depends on MySimulator's constructor
+   config = DeviceConfig(custom_device_id)
+   device = CustomSimulator(config)
+
+Alternatively, if the user only intends to have one device, use the following shortcut:
+
+.. code-block:: python
+
+   device = CustomSimulator.createSimulator(MySimulator, "custom_device", <args>)
+
+Note the difference relative to the C++ interface: instead of the class being a template argument of
+``registerCustomInterface`` and ``createSimulator``, it is the first parameter in the Python Interface.
+
+Call the function ``getCustomBackend()`` to return the class that the user has created:
+
+.. code-block:: python
+
+   sim_object = device.getCustomBackend()
+
+
+Known Limitations of the Python Interface
+-----------------------------------------
+
+* Any variables of ``cbit`` type must be global in order to access them.
+* The C++ functions, including ``quantum_kernel``, called from Python must
+  return ``void`` and either take no parameters or take an single array of
+  ``double``.

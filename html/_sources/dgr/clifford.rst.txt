@@ -1,0 +1,215 @@
+.. _clifford:
+
+Clifford Simulator Backend
+==========================
+
+.. contents::
+   :local:
+   :depth: 3
+
+The Clifford Simulator is a specialized qubit simulator which can process and
+evaluate the outcome of quantum circuits composed only of Clifford gates and Pauli
+measurements. The Clifford group :cite:p:`HDER06` can be broadly described
+as the group which transforms Pauli operators to Pauli operators. It is well known
+that Clifford operations are not universal for quantum computation, and that
+they are efficiently simulatable with classical computers :cite:p:`Gott98` :cite:p:`Nest10`.
+In this sense, the Clifford Simulator is not a general purpose qubit simulator.
+However, Quantum Error Correction (QEC) is an application area that makes extensive
+use of Clifford operations. Thus for studying QEC or related applications involving
+only Clifford operations, the Clifford Simulator can serve as a powerful tool due to its
+scalability, low memory footprint, and focus on application of Clifford operations and
+Pauli measurements.
+
+The Clifford Simulator adapts the methods of the *Pauli Tableau* :cite:p:`AaGo04` using a
+sparse representation of the underlying Pauli operators to form the tableau. This means
+there is no cost to unused qubits in the tableau as the data structure expands as
+gates are applied.
+
+Clifford Operations
+-------------------
+
+The Clifford group is super-exponentially large in the number of qubits. However,
+it is possible to efficiently decompose any arbitrary Clifford unitary to the one-qubit gates
+:emphasis:`H`, :emphasis:`S`, and the two-qubit gate :emphasis:`CNOT` :cite:p:`HDER06`.
+The gates in their matrix representations are given below for convenience.
+
+.. math::
+
+   \text{H} &= \frac{1}{\sqrt{2}} \begin{bmatrix}  1 & 1 \\
+                               1 & -1 \\
+               \end{bmatrix}
+
+   \text{S} &= \begin{bmatrix}  1 & 0 \\
+                               0 & i \\
+               \end{bmatrix}
+
+   \text{CNOT} &= \begin{bmatrix} 1 & 0 & 0 & 0 \\
+                               0 & 1 & 0 & 0 \\
+                               0 & 0 & 0 & 1 \\
+                               0 & 0 & 1 & 0\\
+               \end{bmatrix}
+
+The supported gates of the |IQSDK| which are allowed for the Clifford Simulator are:
+
+* Hadamard (``H``)
+* Pauli X (``X``)
+* Pauli Y (``Y``)
+* Pauli Z (``Z``)
+* Phase (``S``)
+* Phase Inverse (``Sdag``)
+*  X axis Rotation (``RX``) For angles :math:`0`, :math:`\pi/2`, :math:`\pi`, :math:`3\pi/2`
+*  Y axis Rotation (``RY``) For angles :math:`0`, :math:`\pi/2`, :math:`\pi`, :math:`3\pi/2`
+*  Z axis Rotation (``RZ``) For angles :math:`0`, :math:`\pi/2`, :math:`\pi`, :math:`3\pi/2`
+* Controlled Z (``CZ``)
+* ``CNOT``
+* ``SWAP``
+* ``PrepZ``
+* ``PrepX``
+* ``PrepY``
+* ``MeasZ``
+* ``MeasX``
+* ``MeasY``
+* ``CPhase`` for angle :math:`\pi`
+* XY-plane Rotation (``RXY``) for both (``theta``, ``phi``) angles in  {:math:`0`, :math:`\pi/2`, :math:`\pi`, :math:`3\pi/2`}
+  and the angle pairs (:math:`\pi`, :math:`\pi/4`) and (:math:`\pi`, :math:`3\pi/4`)\
+* ``SwapA`` for angle :math:`\pi`
+
+
+Using Clifford Simulator in a Program
+-------------------------------------
+
+To enable the Clifford Simulator, a ``CliffordSimulatorConfig`` should be declared as
+shown below. The seed is optional (defaults to a seed based on the time), but should be
+user-specified especially if modeling the effects of noise.
+
+.. code-block:: c++
+
+   iqsdk::CliffordSimulatorConfig clifford_config(seed);
+
+Then, create a ``CliffordSimulator`` with the ``CliffordSimulatorConfig``, and call the
+``ready()`` API for the simulator just before use; see |API| for description.
+
+.. code-block:: c++
+
+   iqsdk::CliffordSimulator clifford_device(clifford_config);
+   clifford_device.ready();
+
+Once the simulator is configured and ``ready()`` is called, then the ``quantum_kernel`` functions
+can be called to perform simulations on the Clifford Simulator.
+
+Important Points on Clifford Simulator
+--------------------------------------
+
+Using the Pauli Error Model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Clifford Simulator includes a built-in Pauli error model which is *off* by default.
+To turn it *on*, set the flag for the passed ``CliffordSimulatorConfig``:
+
+.. code-block:: c++
+
+  iqsdk::CliffordSimulatorConfig clifford_config(seed);
+  clifford_config.use_errors = true;
+
+All gate errors are based on the Pauli Twirling Approximation :cite:p:`GeZh13` where the exact gate
+action is applied to the simulator, followed by a subset of Pauli operators with probability as
+defined by the parameters of the error model. The parameters of the error model are specified
+gate-by-gate. These are collectively held in ``CliffordSimulatorConfig::error_rates`` which is of
+type ``struct iqsdk::ErrorRates``, and contains the members:
+
+  * ``iqsdk::ErrSpec1Q prep``
+  * ``iqsdk::ErrSpec1Q meas``
+  * ``iqsdk::ErrSpec1Q xyrot``
+  * ``iqsdk::ErrSpec1Q zrot``
+  * ``iqsdk::ErrSpecIdle idle``
+  * ``iqsdk::ErrSpec2Q cz``
+  * ``iqsdk::ErrSpec2Q swap``
+
+where ``struct iqsdk::ErrSpec1Q``, ``struct iqsdk::ErrSpec2Q`` and ``struct iqsdk::ErrSpecIdle``
+represent three Pauli twirling error models.
+
+* ``iqsdk::ErrSpec1Q`` is a general single qubit error model where the probability for each of the
+  single-qubit Pauli operators X, Y, Z can be individually specifed so long as their sum is less
+  than 1. This can be set via the constructor ``iqsdk::ErrSpec1Q(double x_rate, double y_rate, double z_rate)``.
+
+* ``iqsdk::ErrSpec2Q`` is a more specific two-qubit error model based on the non-ideal CZ gate
+  as described in :cite:p:`SJDL03`. It is specified by an off-diagonal *switching* probability ``e``,
+  an off-diagonal phase ``phi`` and control-phase error angle ``delta``. These parameters can be set
+  via the constructor ``iqsdk::ErrSpec2Q(double e, double phi, double delta)``.
+
+* ``iqsdk::ErrSpecIdle`` is a single qubit decoherence model (:math:`\alpha = 0`` from :cite:p:`GeZh13`).
+  Unlike the other two which are a fixed amount of error for each gate, this model is
+  time-dependent and is used for idle error. It is specified by two time-like parameters, ``T1``
+  representing the depolarization rate and ``T2`` which represents the dephasing rate. These
+  parameters can be specified via the constructor ``iqsdk::ErrSpecIdle(double T1, double T2)``.
+
+For the sake of generating idle error, the Clifford Simulator assumes as-soon-as-possible
+scheduling of the gates, and from this, applies idle error based on gaps in this scheduling.
+For this purpose, gate times can be independently specified as
+``CliffordSimulatorConfig::gate_times`` which is of type ``iqsdk::GateTimes`` and contains the
+data:
+
+  * ``double prep``
+  * ``double meas``
+  * ``double xyrot``
+  * ``double zrot``
+  * ``double idle``
+  * ``double cz``
+  * ``double swap``
+
+Collecting State Information
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Since the Clifford simulator is not a full state simulator, the primary API function to
+retrieve results of quantum circuit execution is ``getExpectationValue``. With this function,
+the user can specify a Pauli string (e.g. ``XX``, ``YZ``) for their desired observable, and
+the simulator will directly return the expectation value. No state collapse is performed when
+this API is called.
+
+Such observables are specified by passing a ``std::vector`` of ``std::reference_wrapper<qbit>``,
+representing the operator's support and a ``std::string`` containing only characters from
+the set ``{'I', 'X', 'Y', 'Z'}`` representing the single-qubit operator type as matched
+to the qubit support. A detailed example for the usage can be found in the example
+``api_Simulator_clifford_test.cpp`` (see :ref:`Samples<samples>`).
+
+As with the |Intel| Quantum Simulator, it is also possible to utilize individual measurements
+(``MeasZ``, ``MeasX``, or ``MeasY``) to simulate single-shot results when using the Clifford
+simulator. Use of these measurement gates *do* result in state collapse. This mode of collecting
+results is crucial in modeling applications such as Quantum Error Correction as it captures correlation not
+represented through the ``getExpectationValue()`` API. The single-shot results can then be aggregated
+and analyzed. This is the most straight forward way to compare with execution on the |Intel| Quantum
+Simulator or Tensor Network simulator.
+
+Tip for Faster Simulations
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In the case of modeling noise, it is necessary to use a different seed when initializing the
+``CliffordSimulatorConfig``. See :ref:`Important Points on Performing Noisy Simulations with IQS<iqs-sim-noisy-sim-considerations>`
+for the motivation behind this. A convenient method to follow could be to create configurations
+with different seeds, and then spawn simulator instances based on each of the uniquely seeded
+configurations, based on the number of samples required. If the running mode for the simulators
+is set to :emphasis:`asynchronous`, then multiple simulators can be executed in parallel, and
+results collected later. Using the ``wait()`` simulator API ensures that the given simulator has completed
+execution before moving on to the next part of the program. See :ref:`backend-execution-options`.
+
+In the asynchronous operation mode, care should also be taken when writing to ``cbit`` variables
+during measurements. One possibility to avoid overwriting the same variables is to set up a
+multidimensional array of ``cbit`` type. With this technique, each simulator will have its
+own dedicated set of ``cbit`` variables that will be populated during execution. If multiple sets
+of cbits are required, the dimensionality of the array can be further extended. Another
+possibility is to use local ``cbit`` variables and have them be returned for further analysis
+from the ``quantum_kernel`` function upon completion.
+
+A detailed example for the above usage scenarios can be found in the example
+``iqs_vs_clifford_comparison.cpp`` (see :ref:`Samples<samples>`).
+
+A detailed example of these methods for QEC scaling simulation can be found
+in the example ``rep_code_clifford.cpp`` (see :ref:`Samples<samples>`).
+
+Compilation with Clifford Simulator as the Computing Backend
+------------------------------------------------------------
+
+The Clifford Simulator can accommodate arbitrary qubits connectivities for compilation.
+The default connectivity is all-to-all (fully-connected) with support for up to 256 qubits. See the
+:ref:`Configuration files<configuration file>` section for other available configurations. Also, see
+the :ref:`Scheduling<scheduling>` section on how to enforce connectivity constraints during compilation.

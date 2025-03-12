@@ -1,0 +1,106 @@
+.. _getting_started:
+
+Getting Started
+===============
+
+The |IQSDK| is a complete quantum computing stack using simulation.
+It gives developers the programming tools for developing applications that
+incorporate results from quantum algorithms.
+
+Included are a quantum compiler, quantum runtime, language extensions, and
+a suite of qubit simulator backends (ranging from abstract to physics-based). The language extensions provide the data
+types to represent quantum resources and build powerful quantum expressions.
+The quantum compiler comprehends that logic, and optimizes the
+quantum instructions to reduce the number and complexity. The quantum runtime enables the
+dynamic flow of data between the qubit simulator backend and the C++ data
+structures. And the qubit simulators apply various simulation techniques to
+return a result from a given quantum system.
+
+Users can find information here to:
+* Get familiar with new tools and quantum computing concepts.
+* Check on hardware :ref:`requirements <system_reqs>`.
+* Learn about :ref:`how to use <usage>` the SDK.
+
+.. _system_reqs:
+
+System Requirements
+-------------------
+
+The |IQSDK| has the following memory requirements:
+
+.. _mem_reqs:
+
+Memory Requirements
+^^^^^^^^^^^^^^^^^^^
+
+The memory requirement of applications compiled using the |IQSDK| will be the
+sum of the traditional footprint created by the data structure in the C++ code
+and the memory required by the qubit simulator.
+
+The backends utilizing state-vector simulations require an amount of memory
+which increases with the number of qubits.
+Representing :math:`n` qubits requires :math:`2^n`
+complex numbers. Representing a complex ``double`` value requires 16 bytes, :math:`2^4`. So
+the memory required to simulate :math:`n` qubits is
+
+.. math::
+
+   \text{memory} = 2^{(4 + n)} \, \text{bytes}
+
+
+As an example, simulating different-sized qubit systems will require at least:
+
+.. list-table:: Memory Requirements
+   :header-rows: 1
+   :class: longtable
+
+   * - qubits
+     - memory
+
+   * - 10
+     - 17 KB
+
+   * - 20
+     - 17 MB
+
+   * - 30
+     - 17.2 GB
+
+Note that adding 1 additional qubit doubles the required memory.
+
+.. _usage:
+
+How to Use?
+-----------
+
+In the simplest terms, using the |IQSDK| follows the pattern:
+
+1. Write the quantum algorithm with a ``.cpp`` extension as a separate file.
+   This file will include the ``quantum_kernel`` definitions, initialization for
+   quantum hardware, and the logic for the quantum/classical algorithms
+   (see :ref:`Writing New Algorithms<new_algos>` section for details).
+   Example: ``my_new_algo.cpp``
+
+2. Build and Run.
+   Invoke the ``intel-quantum-compiler`` to use the |IQSDK|:
+
+   .. code-block:: console
+
+      $ ./intel-quantum-compiler [compiler flags] new_algo_start_here.cpp
+
+
+   To see a list of the flag options, run
+
+   .. code-block:: console
+
+      $ ./intel-quantum-compiler -h
+
+
+   Run the executable produced by the compiler:
+
+   .. code-block:: console
+
+      $ ./new_algo_start_here
+
+See |DGR:Issues| for the limitations.
+

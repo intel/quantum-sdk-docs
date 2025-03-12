@@ -1,0 +1,162 @@
+.. _custom_backend:
+
+Custom Backend
+==============
+
+The custom backend feature allows a user to use the |Intel| Quantum Compiler and Quantum Runtime (QRT)
+with their own simulator.
+
+Users will need to include the ``<quantum_custom_backend.h>`` header file to use the Custom Backend.
+
+In the header file there is a ``CustomInterface`` class and a ``CustomSimulator`` class. The ``CustomInterface`` class
+is an abstract base class where the user can implement their own simulator. The ``CustomSimulator`` class
+is similar to ``FullStateSimulator``, ``TensorNetworkSimulator``, or ``CliffordSimulator`` classes in that this is the
+class representing the quantum device.
+
+``CustomInterface``
+-------------------
+
+The ``CustomInterface`` has the following abstract methods that must be implemented by the user
+in any derived class:
+
+* ``RXY()``
+
+   .. code-block:: c++
+
+      void RXY(qbit q, double theta, double phi) = 0;
+
+   The function called by the QRT to apply a Rotation-in-the-XY-plane (``RXY``, :ref:`RXY Matrix Representation<rxy-matrix-representation>`) gate.
+
+* ``RZ()``
+
+   .. code-block:: c++
+
+      void RZ(qbit q, double angle) = 0;
+
+   The function called by the QRT to apply a Rotation-around-Z-axis (``RZ``) gate.
+
+* ``CPhase()``
+
+   .. code-block:: c++
+
+      void CPhase(qbit ctrl, qbit target, double angle) = 0;
+
+   The function called by the QRT to apply a Controlled-Phase (``CPhase``) gate.
+
+* ``SwapA()``
+
+   .. code-block:: c++
+
+      void SwapA(qbit q1, qbit q2, double angle) = 0;
+
+   The function called by the QRT to apply a Swap-Alpha (``SwapA``) gate.
+
+* ``PrepZ()``
+
+   .. code-block:: c++
+
+      void PrepZ(qbit q) = 0;
+
+   The function called by the QRT to prepare the specified qubit in the Z basis (``PrepZ``).
+
+* ``MeasZ()``
+
+   .. code-block:: c++
+
+      cbit MeasZ(qbit q) = 0;
+
+   The function called by the runtime to measure the qubit in the Z basis (``MeasZ``).
+   The return value is the result of the measurement. The QRT will map the
+   measurement into the appropriate bool (or ``cbit``) variable.
+
+The user is free to implement any other functions that they may wish to call in this class as well.
+In addition, they can implement a constructor that takes in any number of arguments.  Also,
+the base class does not include utilities to manage a state vector or other representation of the
+quantum state. The user will also need to manage this information if it is needed. 
+
+``CustomSimulator``
+-------------------
+
+The user needs to register their simulator with the QRT. The following example assumes that the user made a class
+called ``MyCustomBackend`` that is publicly derived from ``CustomInterface``.
+
+.. code-block:: c++
+
+    class MyCustomBackend : public iqsdk::CustomInterface
+
+The user will then need to create a ``device_id`` which is a string that will refer to the device type, which must not be
+an identifier for an already defined backend. Existing reserved identifiers include ``"IQS"``, ``"Tensor_Network"``, ``"QD_SIM"``, and ``"Clifford"``.
+Then they will need to call ``iqsdk::CustomSimulator::registerCustomInterface<MyCustomBackend> (device_id, args...)``
+
+The template parameter to ``registerCustomInterface()`` is the class for the simulator, the first parameter is the ``device_id``,
+and the rest of the parameters get passed into the constructor for ``MyCustomBackend`` (can be zero parameters).
+
+As an example, if ``MyCustomBackend`` has a constructor taking in a single integer, the following is possible:
+
+.. code-block:: c++
+
+    std::string device_id = "my_custom_device";
+    iqsdk::QRT_ERROR_T status = iqsdk::CustomSimulator::registerCustomInterface<MyCustomBackend>(device_id, 3);
+
+Then, the user can use ``iqsdk::DeviceConfig`` to make an instance of the device.
+
+.. code-block:: c++
+
+    iqsdk::DeviceConfig new_device_config(device_id);
+    iqsdk::CustomSimulator generic_simulator(new_device_config);
+
+As usual, you call ``ready()`` to indicate the next quantum kernel gets run on the custom backend.
+
+.. code-block:: c++
+
+    status = generic_simulator.ready();
+
+To get access to the custom simulator class, you can call ``getCustomBackend()``.
+
+.. code-block:: c++
+
+    iqsdk::CustomInterface *custom_interface = generic_simulator.getCustomBackend();
+
+Then you can dynamic cast it to your class.
+
+.. code-block:: c++
+
+    MyCustomBackend *custom_simulator_instance = dynamic_cast<MyCustomBackend *>(custom_interface);
+
+Here, after running a quantum kernel, you can call any function you have implemented for the class.
+
+Alternatively, for single use purposes, it is possible to register and get a generic simulator in a single call.
+
+.. code-block:: c++
+
+    iqsdk::CustomSimulator *generic_simulator = iqsdk::CustomSimulator::createSimulator<MyCustomBackend>("my_custom_device", 3);
+
+Methods
+-------
+
+* ``getCustomBackend()``
+
+   .. code-block:: c++
+
+      iqsdk::CustomInterface *getCustomBackend();
+
+   Gets the custom backend stored in the ``CustomSimulator`` object.
+
+* ``registerCustomInterface()``
+
+   .. code-block:: c++
+
+      template <typename T, typename... Ts>
+        static QRT_ERROR_T registerCustomInterface(std::string device_id,
+                                             Ts... args);
+
+   Registers the custom backend with the QRT.
+
+* ``createSimulator()``
+
+   .. code-block:: c++
+
+      template <typename T, typename... Ts>
+        static CustomSimulator *createSimulator(std::string device_id, Ts... args);
+
+   Registers and creates a custom backend.

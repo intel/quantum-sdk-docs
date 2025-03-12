@@ -1,0 +1,31 @@
+.. _cbit_vector:
+
+``iqsdk::CbitVector`` class
+============================
+
+The ``iqsdk::CbitVector`` class is a cbit measurement container specially
+built for handling multi-iteration measurement returns. Functionally,
+it works like a ``std::vector`` of ``std::vector`` of ``cbit``'s(``bool``'s)
+but with some important differences:
+
+* Each element of the ``iqsdk::CbitVector`` is functionally a C-style array, but
+   it can be allocated dynamically with a "width" that can be determined
+   at runtime. NOTE: As such, elements of the ``iqsdk::CbitVector`` should be treated
+   like a C-style array.
+
+* The element arrays are guaranteed to be contiguous memory to meet the
+   requirements for quantum-kernel measurements executed on multi-iteration
+   backends; see :TODO:`add ref to multiple iteration`.
+
+* The memory for the C-style arrays is allocated on the heap, allowing ``iqsdk::CbitVector``
+  to store large amounts of data without blowing the stack memory.
+
+* Much like a ``std::vector``, ``iqsdk::CbitVector`` can be expanded dynamically via
+   ``resize`` and ``push_back`` member methods. Moreover, the container
+   automatically resizes if the subscript operator(``[]``) argument exceeds
+   the current size of the container up to a max of ``65536`` entries (to avoid
+   accidential excessive memory allocation in the case of unintentional
+   negative indexing). This allows ``iqsdk::CbitVector`` to be passed as a
+   quantum-kernel argument without needing to know the number of measurements
+   inside the quantum-kernel a priori.
+

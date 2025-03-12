@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>DataList &#8212; Intel® Quantum SDK API v1.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=45183d27"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Barriers and binding" href="barriers.html" />
+    <link rel="prev" title="Let/get, printing, and exiting" href="utils.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="datalist">
+<span id="id1"></span><h1><code class="docutils literal notranslate"><span class="pre">DataList</span></code><a class="headerlink" href="#datalist" title="Link to this heading">¶</a></h1>
+<p>Recursion over <code class="docutils literal notranslate"><span class="pre">QList</span></code> values imposes a qubit-based
+view of quantum programming. Many domain-specific quantum algorithms
+require a higher level of abstraction. For this purpose,
+FLEQ introduces the <code class="docutils literal notranslate"><span class="pre">datalist::DataList</span></code> type for compile-time strings.
+Like a <code class="docutils literal notranslate"><span class="pre">QList</span></code>, a <code class="docutils literal notranslate"><span class="pre">DataList</span></code>
+is an immutable compile-time list that wraps statically-defined C strings or
+<code class="docutils literal notranslate"><span class="pre">char</span></code> arrays.  A <code class="docutils literal notranslate"><span class="pre">DataList</span></code> can be constructed from a string literal via
+the constructor,
+or it can be constructed from a file using a pair of macros.</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// in file &quot;text.txt&quot; ////////////////////////</span>
+
+<span class="n">STRINGIFYDATA</span><span class="p">(</span>
+<span class="n">This</span><span class="w"> </span><span class="n">is</span><span class="w"> </span><span class="n">from</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">file</span><span class="o">!</span>
+<span class="p">)</span>
+
+<span class="c1">//////////////////////////////////////////////</span>
+
+<span class="k">const</span><span class="w"> </span><span class="n">datalist</span><span class="o">::</span><span class="n">DataList</span><span class="w"> </span><span class="n">str_src</span><span class="p">(</span><span class="s">&quot;This is from source!&quot;</span><span class="p">);</span>
+
+<span class="n">import_with_name_begin</span><span class="p">(</span><span class="n">file_str</span><span class="p">)</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;test.txt&quot;</span>
+<span class="n">import_with_name_end</span><span class="p">(</span><span class="n">file_str</span><span class="p">);</span>
+<span class="c1">// equivalent to</span>
+<span class="c1">//</span>
+<span class="c1">// char file_str_raw[] = &quot;this is from file!&quot;;</span>
+<span class="c1">// const DataList file_str(file_str_raw);</span>
+</pre></div>
+</div>
+<section id="basic-datalist-operations">
+<h2>Basic <code class="docutils literal notranslate"><span class="pre">DataList</span></code> operations<a class="headerlink" href="#basic-datalist-operations" title="Link to this heading">¶</a></h2>
+<p>Like <code class="docutils literal notranslate"><span class="pre">QList</span></code> and ordinary C++ <code class="docutils literal notranslate"><span class="pre">std::string</span></code>, a <code class="docutils literal notranslate"><span class="pre">DataList</span></code> can be
+sliced, concatenated, sized, and addressed.</p>
+<p><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">datalist::DataList::size()</span></code></p>
+<blockquote>
+<div><p>Return the length of the <code class="docutils literal notranslate"><span class="pre">DataList</span></code>. Compile-time resolvable.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">char</span> <span class="pre">datalist::DataList::operator[](unsigned</span> <span class="pre">long</span> <span class="pre">i)</span></code></p>
+<blockquote>
+<div><p>Index into a <code class="docutils literal notranslate"><span class="pre">DataList</span></code>, e.g. <code class="docutils literal notranslate"><span class="pre">data[i]</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::operator+(DataList</span> <span class="pre">data1,</span> <span class="pre">DataList</span> <span class="pre">data2)</span></code></p>
+<blockquote>
+<div><p>Concatenate two data lists, e.g. <code class="docutils literal notranslate"><span class="pre">data1</span> <span class="pre">+</span> <span class="pre">data2</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::DataList::operator()(unsigned</span> <span class="pre">long</span> <span class="pre">start,</span> <span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">end)</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::DataList::operator()(DataList</span> <span class="pre">start,</span> <span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">end)</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::DataList::operator()(unsigned</span> <span class="pre">long</span> <span class="pre">start,</span> <span class="pre">DataList</span> <span class="pre">end)</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::DataList::operator()(DataList</span> <span class="pre">start,</span> <span class="pre">DataList</span> <span class="pre">end)</span></code></p>
+<blockquote>
+<div><p>Each of the four variants above returns a slice of a <code class="docutils literal notranslate"><span class="pre">DataList</span></code>, starting at the index <code class="docutils literal notranslate"><span class="pre">start</span></code> (inclusive) and
+ending at the index <code class="docutils literal notranslate"><span class="pre">end</span></code> (exclusive); e.g. <code class="docutils literal notranslate"><span class="pre">data(start,</span> <span class="pre">end)</span></code>. When <code class="docutils literal notranslate"><span class="pre">start</span></code> or <code class="docutils literal notranslate"><span class="pre">end</span></code> are <code class="docutils literal notranslate"><span class="pre">DataList</span></code> values,
+the index associated with that <code class="docutils literal notranslate"><span class="pre">DataList</span></code> is the result of <code class="docutils literal notranslate"><span class="pre">find(start)</span></code>/<code class="docutils literal notranslate"><span class="pre">find(end)</span></code> respectively.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::operator&gt;&gt;(DataList</span> <span class="pre">data,</span> <span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">i)</span></code></p>
+<blockquote>
+<div><p>Return the right shift of <code class="docutils literal notranslate"><span class="pre">data</span></code> by offset <code class="docutils literal notranslate"><span class="pre">i</span></code>,
+i.e. <code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">&gt;&gt;</span> <span class="pre">i</span> <span class="pre">==</span> <span class="pre">data(i,</span> <span class="pre">data.size())</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::operator&lt;&lt;(DataList</span> <span class="pre">data,</span> <span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">i)</span></code></p>
+<blockquote>
+<div><p>Return the left shift of <code class="docutils literal notranslate"><span class="pre">data</span></code> by offset <code class="docutils literal notranslate"><span class="pre">i</span></code>,
+i.e. <code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">&lt;&lt;</span> <span class="pre">i</span> <span class="pre">==</span> <span class="pre">data(0,</span> <span class="pre">data.size()</span> <span class="pre">-</span> <span class="pre">i)</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::operator+(DataList</span> <span class="pre">data,</span> <span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">i)</span></code></p>
+<blockquote>
+<div><p>Return the right shift of <code class="docutils literal notranslate"><span class="pre">data</span></code> by offset <code class="docutils literal notranslate"><span class="pre">i</span></code>,
+i.e. <code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">+</span> <span class="pre">i</span> <span class="pre">==</span> <span class="pre">data(i,</span> <span class="pre">data.size())</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::operator++()</span></code></p>
+<blockquote>
+<div><p>Return the right shift of a <code class="docutils literal notranslate"><span class="pre">DataList</span></code> by 1,
+i.e. <code class="docutils literal notranslate"><span class="pre">++data</span> <span class="pre">==</span> <span class="pre">data(1,</span> <span class="pre">data.size())</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">datalist::DataList::count(DataList</span> <span class="pre">sub_str1,</span> <span class="pre">DataList</span> <span class="pre">sub_str2,</span> <span class="pre">...)</span></code></p>
+<blockquote>
+<div><p>Return the number of occurrences of any of the substring arguments in the
+current <code class="docutils literal notranslate"><span class="pre">DataList</span></code>.</p>
+<p>In the case of variadic arguments like <code class="docutils literal notranslate"><span class="pre">count</span></code>, the behavior is <code class="docutils literal notranslate"><span class="pre">OR</span></code>-ed over all the arguments. So for example,
+<code class="docutils literal notranslate"><span class="pre">data.count(&quot;A&quot;,</span> <span class="pre">&quot;B&quot;,</span> <span class="pre">&quot;C&quot;)</span></code> returns the number of times the <code class="docutils literal notranslate"><span class="pre">DataList</span></code> contains <code class="docutils literal notranslate"><span class="pre">&quot;A&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;B&quot;</span></code>
+or <code class="docutils literal notranslate"><span class="pre">&quot;C&quot;</span></code>.</p>
+</div></blockquote>
+</section>
+<section id="datalist-conversions">
+<h2><code class="docutils literal notranslate"><span class="pre">DataList</span></code> conversions<a class="headerlink" href="#datalist-conversions" title="Link to this heading">¶</a></h2>
+<p>FLEQ provides several functions for casting a <code class="docutils literal notranslate"><span class="pre">DataList</span></code> of a
+specific form to basic C types and visa versa:</p>
+<p><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">datalist::DataList::to_int()</span></code> and <code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">datalist::_i(DataList</span> <span class="pre">data)</span></code></p>
+<blockquote>
+<div><p>Convert a <code class="docutils literal notranslate"><span class="pre">DataList</span></code> into an integer; analogous to <code class="docutils literal notranslate"><span class="pre">std::stoi</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">double</span> <span class="pre">datalist::DataList::to_double()</span></code> and <code class="docutils literal notranslate"><span class="pre">double</span> <span class="pre">datalist::_d(DataList</span> <span class="pre">data)</span></code></p>
+<blockquote>
+<div><p>Convert a <code class="docutils literal notranslate"><span class="pre">DataList</span></code> into a double; analogous to <code class="docutils literal notranslate"><span class="pre">std::stod</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">datalist::DataList::to_bool()</span></code> and <code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">datalist::_b(DataList</span> <span class="pre">data)</span></code></p>
+<blockquote>
+<div><p>Convert a <code class="docutils literal notranslate"><span class="pre">DataList</span></code> into an bool.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList(int</span> <span class="pre">i)</span></code></p>
+<blockquote>
+<div><p>Produce a <code class="docutils literal notranslate"><span class="pre">DatatList</span></code> from an integer, e.g. <code class="docutils literal notranslate"><span class="pre">DataList</span> <span class="pre">x</span> <span class="pre">(5);</span></code>
+produces a <code class="docutils literal notranslate"><span class="pre">DataList</span></code> variable <code class="docutils literal notranslate"><span class="pre">x</span></code> with value <code class="docutils literal notranslate"><span class="pre">&quot;5&quot;</span></code>.</p>
+</div></blockquote>
+<p>If a cast fails (i.e. if the <code class="docutils literal notranslate"><span class="pre">to_int()</span></code> is called on a <code class="docutils literal notranslate"><span class="pre">DataList</span></code> that does
+not consist of digits), the behavior is undefined, which could lead to incorrect
+results. Note that the compiler does not exit in this case, though this behavior
+may be changed in future versions. Best practice is to confirm the <code class="docutils literal notranslate"><span class="pre">DataList</span></code>
+has the appropriate form before casting. For example, the following <code class="docutils literal notranslate"><span class="pre">QExpr</span></code>
+function expects a <code class="docutils literal notranslate"><span class="pre">DataList</span></code> of the form <code class="docutils literal notranslate"><span class="pre">0</span></code> or <code class="docutils literal notranslate"><span class="pre">1</span></code>, and casts the result
+to a boolean used in the conditional of a <code class="docutils literal notranslate"><span class="pre">cIf</span></code>.</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">QExpr</span><span class="w"> </span><span class="nf">unguarded_cast</span><span class="p">(</span><span class="n">qbit</span><span class="w"> </span><span class="o">&amp;</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">datalist</span><span class="o">::</span><span class="n">DataList</span><span class="w"> </span><span class="n">cond</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">cond</span><span class="p">.</span><span class="n">to_bool</span><span class="p">(),</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_X</span><span class="p">(</span><span class="n">q</span><span class="p">),</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">());</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If this function is evaluated with an ill-formed input, such as
+<code class="docutils literal notranslate"><span class="pre">unguarded_cast(q,</span> <span class="pre">&quot;X&quot;)</span></code>, the program will still compile, but will fail at
+runtime without any kind of error handling.</p>
+<p>A user can prevent this failure case by using an additional <code class="docutils literal notranslate"><span class="pre">cIf</span></code> to ensure
+the <code class="docutils literal notranslate"><span class="pre">DataList</span></code> has the appropriate form. For example:</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">QExpr</span><span class="w"> </span><span class="nf">guarded_cast</span><span class="p">(</span><span class="n">qbit</span><span class="w"> </span><span class="o">&amp;</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">datalist</span><span class="o">::</span><span class="n">DataList</span><span class="w"> </span><span class="n">cond</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">cond</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">datalist</span><span class="o">::</span><span class="n">DataList</span><span class="p">(</span><span class="s">&quot;0&quot;</span><span class="p">)</span>
+<span class="w">                 </span><span class="o">||</span><span class="w"> </span><span class="n">cond</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">datalist</span><span class="o">::</span><span class="n">DataList</span><span class="p">(</span><span class="s">&quot;1&quot;</span><span class="p">),</span>
+<span class="w">            </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">cond</span><span class="p">.</span><span class="n">to_bool</span><span class="p">(),</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_X</span><span class="p">(</span><span class="n">q</span><span class="p">),</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">()),</span>
+<span class="w">            </span><span class="n">qexpr</span><span class="o">::</span><span class="n">exitAtCompile</span><span class="p">(</span><span class="s">&quot;Expected 0 or 1.&quot;</span><span class="p">)</span>
+<span class="w">        </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If this function is evaluated with an ill-formed input, the compiler will exit
+with the error message “Expected 0 or 1”.</p>
+</section>
+<section id="parsing">
+<h2>Parsing<a class="headerlink" href="#parsing" title="Link to this heading">¶</a></h2>
+<p>To aid with parsing, <code class="docutils literal notranslate"><span class="pre">DataList</span></code> includes several substring search functions
+returning an index into the current <code class="docutils literal notranslate"><span class="pre">DataList</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">datalist::DataList::find(DataList</span> <span class="pre">sub_str)</span></code></p>
+<blockquote>
+<div><p>Returns the index of the start of the first occurrence of <code class="docutils literal notranslate"><span class="pre">sub_str</span></code>
+in the <code class="docutils literal notranslate"><span class="pre">DataList</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">datalist::DataList::find_last(DataList</span> <span class="pre">sub_str)</span></code></p>
+<blockquote>
+<div><p>Returns the index of the start of the last occurrence of <code class="docutils literal notranslate"><span class="pre">sub_str</span></code>
+in the <code class="docutils literal notranslate"><span class="pre">DataList</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">datalist::DataList::find_any(DataList</span> <span class="pre">chars)</span></code></p>
+<blockquote>
+<div><p>Returns the index of the first occurrence of any of the characters in
+<code class="docutils literal notranslate"><span class="pre">chars</span></code>. For example, <code class="docutils literal notranslate"><span class="pre">DataList(&quot;xyz20&quot;).find_any(&quot;012&quot;)</span></code> will return the index
+<code class="docutils literal notranslate"><span class="pre">3</span></code> as <code class="docutils literal notranslate"><span class="pre">&quot;xyz20&quot;[3]</span> <span class="pre">=</span> <span class="pre">&quot;2&quot;</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">datalist::DataList::find_any_last(DataList</span> <span class="pre">chars)</span></code></p>
+<blockquote>
+<div><p>Returns the index of the last occurrence of any of the characters in
+<code class="docutils literal notranslate"><span class="pre">chars</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">datalist::DataList::find_not(DataList</span> <span class="pre">sub_str)</span></code></p>
+<blockquote>
+<div><p>Returns the index of the first character not matching any character of
+<code class="docutils literal notranslate"><span class="pre">sub_str</span></code>. Will return <code class="docutils literal notranslate"><span class="pre">0</span></code> if <code class="docutils literal notranslate"><span class="pre">sub_str</span></code> is not a prefix of the
+current <code class="docutils literal notranslate"><span class="pre">DataList</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">datalist::DataList::find_not_last(DataList</span> <span class="pre">sub_str)</span></code></p>
+<blockquote>
+<div><p>Returns the index of the last character not matching any character of
+<code class="docutils literal notranslate"><span class="pre">sub_str</span></code>. Will return <code class="docutils literal notranslate"><span class="pre">size()</span></code> if <code class="docutils literal notranslate"><span class="pre">sub_str</span></code> is not a suffix
+of the current <code class="docutils literal notranslate"><span class="pre">DataList</span></code>.</p>
+</div></blockquote>
+<p>In addition, <code class="docutils literal notranslate"><span class="pre">DataList</span></code> contains several utilities that return substrings.</p>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::DataList::next(DataList</span> <span class="pre">sub_str1,</span> <span class="pre">DataList</span> <span class="pre">sub_str2,</span> <span class="pre">...)</span></code></p>
+<blockquote>
+<div><p>Returns the <code class="docutils literal notranslate"><span class="pre">DataList</span></code> slice beginning at the first occurrence of any of the arguments.
+For example:</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">DataList(&quot;find</span> <span class="pre">this</span> <span class="pre">123</span> <span class="pre">or</span> <span class="pre">this</span> <span class="pre">345&quot;).next(&quot;this&quot;)</span> <span class="pre">=</span> <span class="pre">&quot;this</span> <span class="pre">123</span> <span class="pre">or</span> <span class="pre">this</span> <span class="pre">345&quot;</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DataList(&quot;The</span> <span class="pre">quick</span> <span class="pre">brown</span> <span class="pre">fox.&quot;).next(&quot;fox&quot;,</span> <span class="pre">&quot;quick&quot;)</span> <span class="pre">=</span> <span class="pre">&quot;quick</span> <span class="pre">brown</span> <span class="pre">fox.&quot;</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DataList(&quot;The</span> <span class="pre">quick</span> <span class="pre">brown</span> <span class="pre">fox.&quot;).next(&quot;fox&quot;,</span> <span class="pre">&quot;house&quot;)</span> <span class="pre">=</span> <span class="pre">&quot;fox.&quot;</span></code></p>
+</div></blockquote>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::DataList::after_next</span></code> <code class="docutils literal notranslate"><span class="pre">(DataList</span> <span class="pre">sub_str1,</span></code> <code class="docutils literal notranslate"><span class="pre">DataList</span> <span class="pre">sub_str2,</span></code> <code class="docutils literal notranslate"><span class="pre">...)</span></code></p>
+<blockquote>
+<div><p>Returns the <code class="docutils literal notranslate"><span class="pre">DataList</span></code> slice beginning directly after the first occurrence of any of the arguments.
+For example:</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">DataList(&quot;find</span> <span class="pre">this</span> <span class="pre">123</span> <span class="pre">or</span> <span class="pre">this</span> <span class="pre">345&quot;).after_next(&quot;this&quot;)</span> <span class="pre">=</span> <span class="pre">&quot;</span> <span class="pre">123</span> <span class="pre">or</span> <span class="pre">this</span> <span class="pre">345&quot;</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DataList(&quot;The</span> <span class="pre">quick</span> <span class="pre">brown</span> <span class="pre">fox.&quot;).after_next(&quot;fox&quot;,</span> <span class="pre">&quot;quick&quot;)</span> <span class="pre">=</span> <span class="pre">&quot;</span> <span class="pre">brown</span> <span class="pre">fox.&quot;</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DataList(&quot;The</span> <span class="pre">quick</span> <span class="pre">brown</span> <span class="pre">fox.&quot;).after_next(&quot;fox&quot;,</span> <span class="pre">&quot;house&quot;)</span> <span class="pre">=</span> <span class="pre">&quot;.&quot;</span></code></p>
+</div></blockquote>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::DataList::next_not(DataList</span> <span class="pre">sub_str)</span></code></p>
+<blockquote>
+<div><p>Returns the <code class="docutils literal notranslate"><span class="pre">DataList</span></code> occurring after the index <code class="docutils literal notranslate"><span class="pre">find_not(sub_str)</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::DataList::next_block(DataList</span> <span class="pre">chars)</span></code></p>
+<blockquote>
+<div><p>Returns the first <code class="docutils literal notranslate"><span class="pre">DataList</span></code> slice whose elements
+all match any of the characters in <code class="docutils literal notranslate"><span class="pre">chars</span></code>.</p>
+<p>For example, <code class="docutils literal notranslate"><span class="pre">d.next_block(&quot;0123456789&quot;)</span></code> will return
+the first integer in <code class="docutils literal notranslate"><span class="pre">d</span></code>.</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">DataList(&quot;July</span> <span class="pre">18,</span> <span class="pre">1968&quot;).next_block(&quot;0123456789&quot;)</span> <span class="pre">=</span> <span class="pre">&quot;18&quot;</span></code></p>
+</div></blockquote>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::DataList::last(DataList</span> <span class="pre">sub_str1,</span></code> <code class="docutils literal notranslate"><span class="pre">DataList</span> <span class="pre">sub_str2,</span></code> <code class="docutils literal notranslate"><span class="pre">...)</span></code></p>
+<blockquote>
+<div><p>Returns the <code class="docutils literal notranslate"><span class="pre">DataList</span></code> slice beginning at the last occurrence of any of the
+substring arguments.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::DataList::after_last(DataList</span> <span class="pre">sub_str1,</span></code> <code class="docutils literal notranslate"><span class="pre">DataList</span> <span class="pre">sub_str2,</span></code> <code class="docutils literal notranslate"><span class="pre">...)</span></code></p>
+<blockquote>
+<div><p>Returns the <code class="docutils literal notranslate"><span class="pre">DataList</span></code> slice beginning immediately after the last
+occurrence of any of the substring arguments.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::DataList::last_not(DataList</span> <span class="pre">sub_str)</span></code></p>
+<blockquote>
+<div><p>Returns the slice of the current <code class="docutils literal notranslate"><span class="pre">DataList</span></code> starting at the
+index <code class="docutils literal notranslate"><span class="pre">find_not_last(sub_str)</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">datalist::DataList</span> <span class="pre">datalist::DataList::last_block(DataList</span> <span class="pre">sub_str)</span></code></p>
+<blockquote>
+<div><p>Returns the last <code class="docutils literal notranslate"><span class="pre">DataList</span></code> block whose elements
+all match any of the characters in <code class="docutils literal notranslate"><span class="pre">chars</span></code>.
+For example:</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">DataList(&quot;July</span> <span class="pre">18,</span> <span class="pre">1968&quot;).last_block(&quot;0123456789&quot;)</span> <span class="pre">=</span> <span class="pre">&quot;1968&quot;</span></code></p>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="runtime-and-compile-time-conversions">
+<h2>Runtime and compile-time conversions<a class="headerlink" href="#runtime-and-compile-time-conversions" title="Link to this heading">¶</a></h2>
+<p>If a compile-time <code class="docutils literal notranslate"><span class="pre">DataList</span></code> is needed at runtime, it can be converted into
+either a runtime equivalent <code class="docutils literal notranslate"><span class="pre">std::string</span></code>, or to a <code class="docutils literal notranslate"><span class="pre">char</span></code> array.</p>
+<p><code class="docutils literal notranslate"><span class="pre">std::string</span> <span class="pre">datalist::to_string(DataList</span> <span class="pre">data)</span></code></p>
+<blockquote>
+<div><p>Return the runtime C++ string represented by the <code class="docutils literal notranslate"><span class="pre">DataList</span></code> <code class="docutils literal notranslate"><span class="pre">data</span></code>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">char</span> <span class="pre">*</span> <span class="pre">datalist::to_char_array(DataList</span> <span class="pre">data)</span></code>.</p>
+<blockquote>
+<div><p>Return the runtime C string represented by the <code class="docutils literal notranslate"><span class="pre">DataList</span></code> <code class="docutils literal notranslate"><span class="pre">data</span></code>.</p>
+</div></blockquote>
+<p>Some DSL examples (see <a class="reference internal" href="dsl.html#dsl"><span class="std std-ref">Domain-specific languages using FLEQ</span></a>) may want to create an array or <code class="docutils literal notranslate"><span class="pre">QList</span></code>
+whose size is specified by a <code class="docutils literal notranslate"><span class="pre">DataList</span></code> input. The <code class="docutils literal notranslate"><span class="pre">datalist</span></code> namespace thus
+also includes a template function that can take as input a constant integer and allocates
+an array of that size of any type as specified by the template argument, including <code class="docutils literal notranslate"><span class="pre">qbit</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">template&lt;typename</span> <span class="pre">Type&gt;</span> <span class="pre">Type</span></code> <code class="docutils literal notranslate"><span class="pre">*</span> <span class="pre">datalist::IQC_alloca(DataList</span> <span class="pre">name</span> <span class="pre">=</span> <span class="pre">&quot;&quot;,</span></code> <code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">N</span> <span class="pre">=</span> <span class="pre">1)</span></code></p>
+<blockquote>
+<div><p>At compile-time, generate an array of <code class="docutils literal notranslate"><span class="pre">Type</span></code> objects of size <code class="docutils literal notranslate"><span class="pre">N</span></code> with
+IR name <code class="docutils literal notranslate"><span class="pre">name</span></code> (for printing and debugging purposes) and return a pointer to the first element.
+Note, no additional memory management is required. The scope of the variable will be the same as
+if a standard array allocation.</p>
+</div></blockquote>
+<p>For example, suppose a user has a quantum kernel expression that takes as input a <code class="docutils literal notranslate"><span class="pre">QList</span></code> of arbitrary size and returns (by reference) a boolean result. The user want to write a function that takes a <code class="docutils literal notranslate"><span class="pre">DataList</span></code> argument that specifies the number of qubits to use in the <code class="docutils literal notranslate"><span class="pre">QList</span></code>. They could use <code class="docutils literal notranslate"><span class="pre">IQC_alloca</span></code> to allocate the appropriate <code class="docutils literal notranslate"><span class="pre">QList</span></code> at compile-time as follows:</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">QExpr</span><span class="w"> </span><span class="nf">op</span><span class="p">(</span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">qs</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="o">&amp;</span><span class="w"> </span><span class="n">result</span><span class="p">)</span><span class="w"> </span><span class="p">{...}</span>
+
+<span class="n">QExpr</span><span class="w"> </span><span class="nf">opOnNQubits</span><span class="p">(</span><span class="n">datalist</span><span class="o">::</span><span class="n">DataList</span><span class="w"> </span><span class="n">N</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="o">&amp;</span><span class="n">result</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">  </span><span class="n">qbit</span><span class="w"> </span><span class="o">*</span><span class="n">qs_raw</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">datalist</span><span class="o">::</span><span class="n">IQC_alloca</span><span class="o">&lt;</span><span class="n">qbit</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;qs&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="p">.</span><span class="n">to_int</span><span class="p">());</span>
+<span class="w">  </span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">qs</span><span class="w"> </span><span class="p">(</span><span class="n">qs_raw</span><span class="p">);</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">op</span><span class="p">(</span><span class="n">qs</span><span class="p">,</span><span class="w"> </span><span class="n">result</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>This function can be invoked on 3 qubits via a call to <code class="docutils literal notranslate"><span class="pre">qexpr::eval_hold(opOnNQubits(&quot;3&quot;,</span> <span class="pre">result))</span></code>.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Intel® Quantum SDK API</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dgr/index.html">Developers Guide and Reference</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">FLEQ Guide and Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="features.html">Features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced.html">Advanced topics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="support.html">Support</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../citations.html">Citations</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">FLEQ Guide and Reference</a><ul>
+  <li><a href="features.html">Features</a><ul>
+      <li>Previous: <a href="utils.html" title="previous chapter">Let/get, printing, and exiting</a></li>
+      <li>Next: <a href="barriers.html" title="next chapter">Barriers and binding</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024 Intel Corporation. All Rights Reserved.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/fleq/datalist.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

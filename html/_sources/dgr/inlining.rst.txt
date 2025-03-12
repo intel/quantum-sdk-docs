@@ -1,0 +1,127 @@
+In-lining & ``quantum_kernel`` functions
+----------------------------------------
+
+When the compiler prepares a ``quantum_kernel`` function, it separates all the quantum
+instructions (as Intermediate Representation (IR)) from the classical IR so that it can deliver a complete set
+of instructions to the quantum backend.
+
+Local declarations and operations with traditional C++ data types *are* supported
+inside a ``quantum_kernel`` function, which aids readability and preserves programming
+concepts.
+At compile time, these "classical" instructions are pulled out of the ``quantum_kernel``.
+This has a consequence on classical instructions, especially ``bool`` and ``cbit`` measurement results:
+any operations on classical variables written inside a ``quantum_kernel`` will
+be executed at the beginning of that ``quantum_kernel``, unless
+they are written after the final quantum gate in the ``quantum_kernel``.
+
+.. code-block:: c++
+
+   qbit q0;
+   qbit q1;
+
+   quantum_kernel void myKernel() {
+     bool b = false;
+     std::cout << "b has value false (0) here after initialization: "
+               << b << "\n";
+     PrepZ(q0);
+     X(q0);
+     MeasZ(q0, b);
+     std::cout << "b still has value 0 here since the quantum gates are not complete: "
+               << (int)c << "\n";
+     PrepZ(q1);
+     std::cout << "After all gates in quantum_kernel have executed, b has value true (1): "
+               << b << "\n";
+   }
+
+A ``quantum_kernel`` may be called from within another ``quantum_kernel``. Here,
+too, the compiler in-lines the quantum instructions from the
+innermost ``quantum_kernel`` and continues until it produces one sequence of
+instructions that corresponds to the "top-level" ``quantum_kernel`` call that
+begins the quantum algorithm.
+
+In-lining combined with the earlier rule on rearranging operations on measurement results means that for
+``quantum_kernel`` functions containing a measurement which are called in the middle
+of another ``quantum_kernel`` function, the operations on those ``cbit`` and ``bool`` measurement results will be moved to
+the beginning of the resulting set of instructions.
+This means that the following code:
+
+.. .. todo::
+
+..   above is confusing. I'm struggling to come up with a code example here to demonstrate the above, the below is just a stub.
+
+.. .. code-block:: c++
+
+..    qbit q0;
+..    qbit q1;
+
+..    quantum_kernel bool inner_kernel() {
+..      bool c0;
+..      MeasZ(q0, c0);
+..      return !c0; // operation on result in middle of top kernel
+..    }
+
+..    quantum_kernel void outer_kernel() {
+..      PrepZ(q0);
+
+..      // has a measurement & operation in inner kernel.
+..      bool inverted_result = inner_kernel();
+
+..      bool c1;
+..      PrepZ(q1);
+..      MeasZ(q1, c1);
+..    }
+
+.. Will be transformed to:
+
+.. .. code-block:: c++
+
+..    qbit q0;
+
+..    quantum_kernel void inlined_kernel() {
+..      // TODO: not sure what to illustrate here.
+
+..    }
+
+If a user needs classical instructions to be executed strictly in the middle of
+a quantum algorithm, they should break up the algorithm into multiple top-level
+quantum kernel functions. Alternatively, they can use the ``bind`` operator on
+quantum kernel expressions (see |FLEQ:bind|).
+
+The restriction that the entire ``quantum_kernel`` be known at compile time
+together with the in-lining behavior means that the top-level kernel cannot
+accept an arbitrary variable of type ``qbit`` as a parameter. The variables of
+``qbit`` type that will be operated on must be explicitly defined in the
+"top-level" kernel's instructions; however, inner ``quantum_kernel`` functions may be
+written to accept ``qbit`` type variables as parameters.
+
+.. note::
+
+    This restriction applies primarily to ``quantum_kernel`` functions, and **not**
+    to FLEQ. See |FLEQ:DGR| if you need this feature.
+
+.. code-block:: c++
+
+   qbit qs[3];
+
+   // A nested quantum_kernel may take either classical or quantum arguments
+   quantum_kernel void bell(qbit &a, qbit &b) {
+     PrepZ(a);
+     PrepZ(b);
+     H(a);
+     CNOT(a,b);
+   }
+
+   // A top level quantum_kernel may take classical arguments, but not quantum
+   // arguments
+   quantum_kernel void topLevelBell() {
+     bell(q[0],q[2]);
+   }
+
+   int main() {
+
+     // may call top-level quantum_kernel
+     topLevelBell();
+
+     // may not call quantum_kernel with quantum arguments
+     // invalid: bell(q[0], q[2]);
+   }

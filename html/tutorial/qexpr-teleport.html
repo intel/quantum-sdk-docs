@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Quantum Teleportation with FLEQ &#8212; Intel® Quantum SDK API v1.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=45183d27"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="API Reference" href="../api/index.html" />
+    <link rel="prev" title="A Tour of GHZ examples" href="tutorials.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="quantum-teleportation-with-fleq">
+<span id="teleportation-tutorial-1q"></span><h1>Quantum Teleportation with FLEQ<a class="headerlink" href="#quantum-teleportation-with-fleq" title="Link to this heading">¶</a></h1>
+<p>This tutorial introduces the main concepts of FLEQ using quantum teleportation.
+Quantum teleportation <span id="id1">[<a class="reference internal" href="../citations.html#id7" title="Michael A. Nielsen and Isaac L. Chuang. Quantum computation and quantum information. Volume 2. Cambridge university press Cambridge, 2010. doi:10.1017/CBO9780511976667.">NC10</a>]</span> allows one actor,
+Alice, to send quantum information to another actor, Bob, in the form of a qubit
+state. The protocol proceeds as follows:</p>
+<ol class="arabic">
+<li><p>Alice and Bob each start with one half of a Bell pair in the state
+<span class="math notranslate nohighlight">\(\frac{1}{\sqrt{2}}(\ket{00} + \ket{11})\)</span>.</p></li>
+<li><p>Alice prepares her state
+<span class="math notranslate nohighlight">\(\ket{\varphi} = \alpha \ket{0} + \beta \ket{1}\)</span>,
+resulting in the three-qubit system
+<span class="math notranslate nohighlight">\(\ket{\varphi} \otimes \frac{1}{\sqrt{2}}(\ket{00} + \ket{11})\)</span>.</p></li>
+<li><p>Alice entangles her state with her half of the Bell pair and measures both
+qubits, producing bits <span class="math notranslate nohighlight">\(x\)</span> and <span class="math notranslate nohighlight">\(y\)</span>, and leaving Bob’s half of the
+Bell pair in one of the following four states:</p>
+<table class="docutils align-default" id="id2">
+<caption><span class="caption-number">Table 4 </span><span class="caption-text">Bob’s state after Alice’s local measurement</span><a class="headerlink" href="#id2" title="Link to this table">¶</a></caption>
+<colgroup>
+<col style="width: 22.2%" />
+<col style="width: 22.2%" />
+<col style="width: 55.6%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p><span class="math notranslate nohighlight">\(x\)</span></p></th>
+<th class="head"><p><span class="math notranslate nohighlight">\(y\)</span></p></th>
+<th class="head"><p>State</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(0\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(0\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\alpha \ket{0} + \beta\ket{1}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(0\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(1\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\alpha \ket{0} - \beta\ket{1}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(1\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(0\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\alpha \ket{1} + \beta\ket{0}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(1\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(1\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(\alpha \ket{1} - \beta\ket{0}\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</li>
+<li><p>Finally, Alice sends the classical bits <span class="math notranslate nohighlight">\(x\)</span> and <span class="math notranslate nohighlight">\(y\)</span> to Bob, who
+uses that information to correct his state to Alice’s original
+<span class="math notranslate nohighlight">\(\ket{\varphi} = \alpha \ket{0} + \beta \ket{1}\)</span>.</p></li>
+</ol>
+<section id="one-qubit-teleportation-with-quantum-kernel-expressions">
+<h2>One-qubit teleportation with quantum kernel expressions<a class="headerlink" href="#one-qubit-teleportation-with-quantum-kernel-expressions" title="Link to this heading">¶</a></h2>
+<p>We start by including the necessary header files: <code class="docutils literal notranslate"><span class="pre">quintrinsics.h</span></code> for use of
+the Intel® Quantum SDK, <code class="docutils literal notranslate"><span class="pre">quantum_full_state_simulator_backend.h</span></code> for a
+simulator backend, and <code class="docutils literal notranslate"><span class="pre">qexpr.h</span></code> for quantum kernel expressions. In addition,
+we include several headers from the C++ standard library that will be useful.</p>
+<div class="literal-block-wrapper docutils container" id="teleport-headers">
+<div class="code-block-caption"><span class="caption-number">Listing 22 </span><span class="caption-text">Header files.</span><a class="headerlink" href="#teleport-headers" title="Link to this code">¶</a></div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;clang/Quantum/quintrinsics.h&gt;</span>
+<span class="linenos">2</span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;quantum_full_state_simulator_backend.h&gt;</span>
+<span class="linenos">3</span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;clang/Quantum/qexpr.h&gt;</span>
+<span class="linenos">4</span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;qexpr_utils.h&gt;</span>
+<span class="linenos">5</span>
+<span class="linenos">6</span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;iostream&gt;</span>
+<span class="linenos">7</span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;cassert&gt;</span>
+<span class="linenos">8</span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;vector&gt;</span>
+<span class="linenos">9</span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;random&gt;</span>
+</pre></div>
+</div>
+</div>
+<p>To prepare a Bell state using quantum kernel expressions, we write a function
+that takes as input two qubits, and returns the quantum kernel expression that
+prepares those qubits in a Bell state.</p>
+<div class="literal-block-wrapper docutils container" id="teleport-bell00">
+<div class="code-block-caption"><span class="caption-number">Listing 23 </span><span class="caption-text">Quantum kernel expression implementing the Bell state <span class="math notranslate nohighlight">\(\frac{1}{\sqrt{2}} (\ket{00} + \ket{11})\)</span></span><a class="headerlink" href="#teleport-bell00" title="Link to this code">¶</a></div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="n">QExpr</span><span class="w"> </span><span class="nf">bell00</span><span class="p">(</span><span class="n">qbit</span><span class="o">&amp;</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">qbit</span><span class="o">&amp;</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos">2</span><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_PrepZ</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="linenos">3</span><span class="w">         </span><span class="o">+</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_PrepZ</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+<span class="linenos">4</span><span class="w">         </span><span class="o">+</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_H</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="linenos">5</span><span class="w">         </span><span class="o">+</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_CNOT</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">);</span>
+<span class="linenos">6</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<p>Notice that this function <em>returns</em> an expression representing a quantum
+program; unlike the non-FLEQ <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions in the rest of the
+SDK, FLEQ does not <em>call</em> quantum gates. Instead, it focuses on constructing a
+quantum kernel <em>expression</em> or <code class="docutils literal notranslate"><span class="pre">QExpr</span></code>.</p>
+<p>In a similar vein, Alice can prepare her state <span class="math notranslate nohighlight">\(\varphi\)</span> by calling a <code class="docutils literal notranslate"><span class="pre">QExpr</span></code>-returning function
+<code class="docutils literal notranslate"><span class="pre">prepPhi()</span></code> on a qubit <code class="docutils literal notranslate"><span class="pre">q</span></code>, which prepares <code class="docutils literal notranslate"><span class="pre">q</span></code> by performing an <code class="docutils literal notranslate"><span class="pre">X</span></code>
+rotation around a randomly generated angle. The <code class="docutils literal notranslate"><span class="pre">PROTECT</span></code> modifier prevents
+inlining, and must be included whenever a <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> function uses local variables.</p>
+<div class="literal-block-wrapper docutils container" id="teleport-prepphi">
+<div class="code-block-caption"><span class="caption-number">Listing 24 </span><span class="caption-text">Prepare Alice’s state <span class="math notranslate nohighlight">\(\ket{\varphi}\)</span>.</span><a class="headerlink" href="#teleport-prepphi" title="Link to this code">¶</a></div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kt">double</span><span class="w"> </span><span class="nf">randomDoubleBetweenZeroAndTwoPi</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos"> 2</span><span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">random_device</span><span class="w"> </span><span class="n">rd</span><span class="p">;</span><span class="w">  </span><span class="c1">// Used to seed the random number generator</span>
+<span class="linenos"> 3</span><span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">mt19937</span><span class="w"> </span><span class="n">gen</span><span class="p">(</span><span class="n">rd</span><span class="p">());</span><span class="w"> </span><span class="c1">// Mersenne Twister PRNG</span>
+<span class="linenos"> 4</span><span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">uniform_real_distribution</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="w"> </span><span class="n">dis</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">2.0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">M_PI</span><span class="p">);</span>
+<span class="linenos"> 5</span><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">dis</span><span class="p">(</span><span class="n">gen</span><span class="p">);</span>
+<span class="linenos"> 6</span><span class="p">}</span>
+<span class="linenos"> 7</span><span class="c1">// Prepare a state |phi&gt; by performing an X rotation around a random angle</span>
+<span class="linenos"> 8</span><span class="n">PROTECT</span><span class="w"> </span><span class="n">QExpr</span><span class="w"> </span><span class="n">prepPhi</span><span class="p">(</span><span class="n">qbit</span><span class="o">&amp;</span><span class="w"> </span><span class="n">q</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos"> 9</span><span class="w">    </span><span class="kt">double</span><span class="w"> </span><span class="n">theta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">randomDoubleBetweenZeroAndTwoPi</span><span class="p">();</span>
+<span class="linenos">10</span><span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Using angle &quot;</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">theta</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="linenos">11</span><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_PrepZ</span><span class="p">(</span><span class="n">q</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_RX</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">theta</span><span class="p">);</span>
+<span class="linenos">12</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<p>Next, we implement Alice’s half of the teleportation protocol,
+where she entangles her prepared qubit with her half of the Bell pair.
+She writes the results to two boolean references <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code>.</p>
+<div class="literal-block-wrapper docutils container" id="teleport-alice">
+<div class="code-block-caption"><span class="caption-number">Listing 25 </span><span class="caption-text">Entangle <code class="docutils literal notranslate"><span class="pre">q</span></code> and <code class="docutils literal notranslate"><span class="pre">a</span></code> and measure both, writing the results to <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code> respectively.</span><a class="headerlink" href="#teleport-alice" title="Link to this code">¶</a></div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="n">QExpr</span><span class="w"> </span><span class="nf">alice</span><span class="p">(</span><span class="n">qbit</span><span class="o">&amp;</span><span class="w"> </span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">qbit</span><span class="o">&amp;</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="o">&amp;</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="o">&amp;</span><span class="w"> </span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos">2</span><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_CNOT</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">)</span>
+<span class="linenos">3</span><span class="w">         </span><span class="o">+</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_H</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+<span class="linenos">4</span><span class="w">         </span><span class="o">+</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_MeasZ</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">)</span>
+<span class="linenos">5</span><span class="w">         </span><span class="o">+</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_MeasZ</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">);</span>
+<span class="linenos">6</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<p>Finally, we implement Bob’s piece of the protocol, which uses <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code> to
+apply corrections to his qubit, <code class="docutils literal notranslate"><span class="pre">b</span></code>.</p>
+<div class="literal-block-wrapper docutils container" id="teleport-bob">
+<div class="code-block-caption"><span class="caption-number">Listing 26 </span><span class="caption-text">Use <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code> to apply corrections to Bob’s qubit <code class="docutils literal notranslate"><span class="pre">b</span></code>.</span><a class="headerlink" href="#teleport-bob" title="Link to this code">¶</a></div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="n">PROTECT</span><span class="w"> </span><span class="n">QExpr</span><span class="w"> </span><span class="n">bob</span><span class="p">(</span><span class="n">qbit</span><span class="o">&amp;</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="o">&amp;</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="o">&amp;</span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos">2</span><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_X</span><span class="p">(</span><span class="n">b</span><span class="p">),</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">())</span>
+<span class="linenos">3</span><span class="w">         </span><span class="o">+</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_Z</span><span class="p">(</span><span class="n">b</span><span class="p">),</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">());</span>
+<span class="linenos">4</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<p>Unlike the other <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> functions up until now, <code class="docutils literal notranslate"><span class="pre">bob()</span></code> does not
+correspond to a straightforward quantum circuit. Instead, it uses the classical
+conditional blocks <code class="docutils literal notranslate"><span class="pre">cIf</span></code> to change which quantum kernel expression will be
+applied based on the runtime values of <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code>. In particular, if <code class="docutils literal notranslate"><span class="pre">y</span></code>
+and <code class="docutils literal notranslate"><span class="pre">x</span></code> are both <code class="docutils literal notranslate"><span class="pre">true</span></code> at runtime, evaluating <code class="docutils literal notranslate"><span class="pre">bob()</span></code> will invoke the
+quantum operation <code class="docutils literal notranslate"><span class="pre">X(b)</span></code> followed by the operation <code class="docutils literal notranslate"><span class="pre">Z(b)</span></code>. On the other
+hand, if <code class="docutils literal notranslate"><span class="pre">y</span></code> is <code class="docutils literal notranslate"><span class="pre">false</span></code> but <code class="docutils literal notranslate"><span class="pre">x</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code>, evaluating <code class="docutils literal notranslate"><span class="pre">bob()</span></code> will
+only invoke <code class="docutils literal notranslate"><span class="pre">Z(b)</span></code>. See the FLEQ Guide and Reference (Branching) for more details on classical
+conditionals.</p>
+<p>To put all of these components together, we will implement 1-qubit teleportation
+in a top-level classical function, <code class="docutils literal notranslate"><span class="pre">teleport1()</span></code>.</p>
+<div class="literal-block-wrapper docutils container" id="teleport1">
+<div class="code-block-caption"><span class="caption-number">Listing 27 </span><span class="caption-text">Implement the 1-qubit teleportation protocol</span><a class="headerlink" href="#teleport1" title="Link to this code">¶</a></div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kt">void</span><span class="w"> </span><span class="nf">teleport1</span><span class="p">(</span><span class="n">iqsdk</span><span class="o">::</span><span class="n">FullStateSimulator</span><span class="o">&amp;</span><span class="w"> </span><span class="n">device</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos"> 2</span>
+<span class="linenos"> 3</span><span class="w">    </span><span class="n">qbit</span><span class="w"> </span><span class="n">q</span><span class="p">;</span>
+<span class="linenos"> 4</span><span class="w">    </span><span class="n">qbit</span><span class="w"> </span><span class="n">a</span><span class="p">;</span>
+<span class="linenos"> 5</span><span class="w">    </span><span class="n">qbit</span><span class="w"> </span><span class="n">b</span><span class="p">;</span>
+<span class="linenos"> 6</span>
+<span class="linenos"> 7</span><span class="w">    </span><span class="c1">// Prepare qubits a and b in a bell state</span>
+<span class="linenos"> 8</span><span class="w">    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">bell00</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">));</span>
+<span class="linenos"> 9</span>
+<span class="linenos">10</span><span class="w">    </span><span class="c1">// Alice prepares her qubit q in the state |phi&gt;</span>
+<span class="linenos">11</span><span class="w">    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">prepPhi</span><span class="p">(</span><span class="n">q</span><span class="p">));</span>
+<span class="linenos">12</span>
+<span class="linenos">13</span><span class="w">    </span><span class="c1">// Record the state Alice prepared</span>
+<span class="linenos">14</span><span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">q_ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">to_ref_wrappers</span><span class="p">(</span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="p">(</span><span class="n">q</span><span class="p">));</span>
+<span class="linenos">15</span><span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">probabilitiesBefore</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">getProbabilities</span><span class="p">(</span><span class="n">q_ref</span><span class="p">);</span>
+<span class="linenos">16</span>
+<span class="linenos">17</span><span class="w">    </span><span class="c1">// Alice entangles her state q with a, and sends measurement</span>
+<span class="linenos">18</span><span class="w">    </span><span class="c1">// results x and y to Bob</span>
+<span class="linenos">19</span><span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">x</span><span class="p">;</span>
+<span class="linenos">20</span><span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">y</span><span class="p">;</span>
+<span class="linenos">21</span><span class="w">    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">alice</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">));</span>
+<span class="linenos">22</span>
+<span class="linenos">23</span><span class="w">    </span><span class="c1">// Bob uses x and y to correct his qubit b</span>
+<span class="linenos">24</span><span class="w">    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">bob</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">));</span>
+<span class="linenos">25</span>
+<span class="linenos">26</span><span class="w">    </span><span class="c1">// At the end, b should be in the state |phi&gt;, up to a global phase</span>
+<span class="linenos">27</span><span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">b_ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">to_ref_wrappers</span><span class="p">(</span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="p">(</span><span class="n">b</span><span class="p">));</span>
+<span class="linenos">28</span><span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">probabilitiesAfter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">getProbabilities</span><span class="p">(</span><span class="n">b_ref</span><span class="p">);</span>
+<span class="linenos">29</span>
+<span class="linenos">30</span><span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Before teleportation, qubit q has distribution:</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="linenos">31</span><span class="w">    </span><span class="n">iqsdk</span><span class="o">::</span><span class="n">FullStateSimulator</span><span class="o">::</span><span class="n">displayProbabilities</span><span class="p">(</span><span class="n">probabilitiesBefore</span><span class="p">,</span><span class="w"> </span><span class="n">q_ref</span><span class="p">);</span>
+<span class="linenos">32</span><span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;After teleportation, qubit b has distribution:</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="linenos">33</span><span class="w">    </span><span class="n">iqsdk</span><span class="o">::</span><span class="n">FullStateSimulator</span><span class="o">::</span><span class="n">displayProbabilities</span><span class="p">(</span><span class="n">probabilitiesAfter</span><span class="p">,</span><span class="w"> </span><span class="n">b_ref</span><span class="p">);</span>
+<span class="linenos">34</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<p>The function takes as input a full state simulator device, which we assume has
+been properly initialized. Lines 3-5 of
+<code class="docutils literal notranslate"><span class="pre">teleport1()</span></code> declare three local qubits: <code class="docutils literal notranslate"><span class="pre">q</span></code> is Alice’s state; <code class="docutils literal notranslate"><span class="pre">a</span></code> is
+Alice’s half of the Bell pair; and <code class="docutils literal notranslate"><span class="pre">b</span></code> is Bob’s half of the Bell pair. The
+variables <code class="docutils literal notranslate"><span class="pre">a</span></code> and <code class="docutils literal notranslate"><span class="pre">b</span></code> are initialized in line 8 by evaluating the quantum
+kernel expression <code class="docutils literal notranslate"><span class="pre">bell00</span></code> with the <code class="docutils literal notranslate"><span class="pre">eval_hold()</span></code> function.</p>
+<p>Line 11 prepares Alice’s qubit <code class="docutils literal notranslate"><span class="pre">q</span></code> in state <span class="math notranslate nohighlight">\(\ket{\varphi}\)</span> by
+evaluating the quantum kernel expression <code class="docutils literal notranslate"><span class="pre">prepPhi(q)</span></code>. Because this state is
+different every iteration, line 15 calls <code class="docutils literal notranslate"><span class="pre">getProbabilities()</span></code> to record what
+<span class="math notranslate nohighlight">\(\ket{\varphi}\)</span> is before teleportation. The function
+<code class="docutils literal notranslate"><span class="pre">getProbabilities()</span></code> produces a data structure that maps qubit states to the
+probability associated with that state at the current point in the computation.
+The argument to <code class="docutils literal notranslate"><span class="pre">getProbabilities()</span></code> specifies the subset and order of qubits
+whose probabilities should be considered. In this case, we are asking for only
+the qubit <code class="docutils literal notranslate"><span class="pre">q</span></code>. See the <a class="reference internal" href="../dgr/programming.html#meas-full-state"><span class="std std-ref">Measurements using Simulated Quantum Backends</span></a> for more details.</p>
+<p>To achieve quantum teleportation, in line 21, Alice measures her qubits to
+boolean values <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code> by evaluating the <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> function <code class="docutils literal notranslate"><span class="pre">alice()</span></code>.
+On line 24, Bob uses these values to correct his state <code class="docutils literal notranslate"><span class="pre">b</span></code> by evaluating
+<code class="docutils literal notranslate"><span class="pre">bob()</span></code>. Finally, line 28 invokes <code class="docutils literal notranslate"><span class="pre">getProbabilities()</span></code> once more to
+determine the state of <code class="docutils literal notranslate"><span class="pre">b</span></code> after teleportation, and prints out both
+probability distributions to compare them for equality.</p>
+<p>The output of running <code class="docutils literal notranslate"><span class="pre">teleport1()</span></code> is the following:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="gp"> $ </span>./qexpr_teleport
+<span class="linenos"> 2</span><span class="go">   Using angle 4.75947</span>
+<span class="linenos"> 3</span><span class="go">   Bob received 1 and 0.</span>
+<span class="linenos"> 4</span><span class="go">   Before teleportation, qubit q has distribution:</span>
+<span class="linenos"> 5</span><span class="go">   Printing probability register of size 2</span>
+<span class="linenos"> 6</span><span class="go">   |0⟩   : 0.5236                        |1⟩   : 0.4764</span>
+<span class="linenos"> 7</span>
+<span class="linenos"> 8</span><span class="go">   After teleportation, qubit b has distribution:</span>
+<span class="linenos"> 9</span><span class="go">   Printing probability register of size 2</span>
+<span class="linenos">10</span><span class="go">   |0⟩   : 0.5235                        |1⟩   : 0.4765</span>
+</pre></div>
+</div>
+<p>Line 2 indicates that Alice’s state
+<span class="math notranslate nohighlight">\(\ket{\varphi}\)</span> was prepared with angle 4.75947. Line 3 indicates that
+Alice measured bits <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code> as 1 and 0, respectively. Finally, lines
+4-10 show that Bob’s state after teleportation matches Alice’s state before
+teleportation (up to a rounding error).</p>
+</section>
+<section id="a-single-quantum-kernel-expression">
+<h2>A single quantum kernel expression<a class="headerlink" href="#a-single-quantum-kernel-expression" title="Link to this heading">¶</a></h2>
+<p>The function <code class="docutils literal notranslate"><span class="pre">teleport1()</span></code> above contains multiple evaluation calls to
+<code class="docutils literal notranslate"><span class="pre">eval_hold()</span></code>; it itself is a classical function that interacts with the
+quantum runtime. If a user does not need to report the output of the first
+state, can they implement teleportation as a single <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> function?</p>
+<p>An initial <strong>incorrect</strong> attempt in doing this is to write a <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> function that simply
+joins the three modular components of the teleportation protocol:</p>
+<div class="literal-block-wrapper docutils container" id="teleport1-bad">
+<div class="code-block-caption"><span class="caption-number">Listing 28 </span><span class="caption-text">Incorrect attempt to implement teleportation as a single quantum kernel expression.</span><a class="headerlink" href="#teleport1-bad" title="Link to this code">¶</a></div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="n">PROTECT</span><span class="w"> </span><span class="n">QExpr</span><span class="w"> </span><span class="n">teleport1_join</span><span class="p">(</span><span class="n">qbit</span><span class="o">&amp;</span><span class="w"> </span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">qbit</span><span class="o">&amp;</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">qbit</span><span class="o">&amp;</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos">2</span><span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="linenos">3</span><span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="linenos">4</span><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">bell00</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span>
+<span class="linenos">5</span><span class="w">            </span><span class="o">+</span><span class="w"> </span><span class="n">alice</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">)</span>
+<span class="linenos">6</span><span class="w">            </span><span class="o">+</span><span class="w"> </span><span class="n">bob</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">);</span>
+<span class="linenos">7</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<p>To use this function, Alice prepares her qubit <code class="docutils literal notranslate"><span class="pre">q</span></code> in state
+<span class="math notranslate nohighlight">\(\ket{\varphi}\)</span> and combines that with the teleportation procedure. Below,
+Alice prepares the state <span class="math notranslate nohighlight">\(\ket{1}\)</span>.</p>
+<div class="literal-block-wrapper docutils container" id="teleport1-bad-eval">
+<div class="code-block-caption"><span class="caption-number">Listing 29 </span><span class="caption-text">Incorrect attempt to implement teleportation as a single quantum kernel expression.</span><a class="headerlink" href="#teleport1-bad-eval" title="Link to this code">¶</a></div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kt">void</span><span class="w"> </span><span class="nf">teleport1_bad</span><span class="p">(</span><span class="n">iqsdk</span><span class="o">::</span><span class="n">FullStateSimulator</span><span class="o">&amp;</span><span class="w"> </span><span class="n">device</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos"> 2</span><span class="w">    </span><span class="n">qbit</span><span class="w"> </span><span class="n">q</span><span class="p">;</span>
+<span class="linenos"> 3</span><span class="w">    </span><span class="n">qbit</span><span class="w"> </span><span class="n">a</span><span class="p">;</span>
+<span class="linenos"> 4</span><span class="w">    </span><span class="n">qbit</span><span class="w"> </span><span class="n">b</span><span class="p">;</span>
+<span class="linenos"> 5</span>
+<span class="linenos"> 6</span><span class="w">    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">qexpr</span><span class="o">::</span><span class="n">_PrepZ</span><span class="p">(</span><span class="n">q</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_X</span><span class="p">(</span><span class="n">q</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">teleport1_join</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">));</span>
+<span class="linenos"> 7</span>
+<span class="linenos"> 8</span><span class="w">    </span><span class="c1">// At the end, b should be in the state |1&gt;</span>
+<span class="linenos"> 9</span><span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">b_ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">to_ref_wrappers</span><span class="p">(</span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="p">(</span><span class="n">b</span><span class="p">));</span>
+<span class="linenos">10</span><span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">probabilitiesAfter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">getProbabilities</span><span class="p">(</span><span class="n">b_ref</span><span class="p">);</span>
+<span class="linenos">11</span>
+<span class="linenos">12</span><span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Expecting state |1&gt;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="linenos">13</span><span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;After teleportation, Bob obtains state:</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="linenos">14</span><span class="w">    </span><span class="n">iqsdk</span><span class="o">::</span><span class="n">FullStateSimulator</span><span class="o">::</span><span class="n">displayProbabilities</span><span class="p">(</span><span class="n">probabilitiesAfter</span><span class="p">,</span><span class="w"> </span><span class="n">b_ref</span><span class="p">);</span>
+<span class="linenos">15</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<p>When we try to run this algorithm, half the time we will observe <code class="docutils literal notranslate"><span class="pre">b</span></code> in the
+state <span class="math notranslate nohighlight">\(\ket{0}\)</span> and half the time we will observe it in the state
+<span class="math notranslate nohighlight">\(\ket{1}\)</span>. This is an indication that the corrections in Bob’s part of
+the protocol are not being applied correctly. Indeed, if we were to print out
+the values of <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code> before Bob performs his corrections, we would see
+that the values of <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code> are always 0.</p>
+<p>The reason for this is that the measurement in Alice’s protocol (inside the
+<code class="docutils literal notranslate"><span class="pre">QExpr</span></code> function <code class="docutils literal notranslate"><span class="pre">alice()</span></code>) is occurring within the same Quantum Basic Block
+(QBB) as the conditional in <code class="docutils literal notranslate"><span class="pre">bob()</span></code>. However, measurement results are not
+written to classical variables <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code> until the end of a QBB. Thus, the
+measurement results do not propagate to <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code> before
+Bob tries to use them. See FLEQ Guide and Reference (Barriers and binding) for more details.</p>
+<p>The solution is to insert a barrier between Alice’s protocol and Bob’s protocol
+to ensure they happen within separate QBBs. This can be achieved via the
+<code class="docutils literal notranslate"><span class="pre">bind</span></code> function, an analogue of the usual <code class="docutils literal notranslate"><span class="pre">join</span></code> function that combines two
+quantum kernel expressions. Where <code class="docutils literal notranslate"><span class="pre">join</span></code> takes two quantum kernel expressions
+and combines them sequentially in the same quantum basic block, <code class="docutils literal notranslate"><span class="pre">bind</span></code>
+produces separate QBBs, executing one after the other. Analogous to the notation
+<code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">+</span> <span class="pre">e2</span></code> for joining quantum kernel expressions in sequence, users can write
+<code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">&lt;&lt;</span> <span class="pre">e2</span></code> for binding quantum kernel expressions in sequence.
+See FLEQ Guide and Reference (Barriers and binding) for more details.</p>
+<p>In this case, the <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> teleportation function <code class="docutils literal notranslate"><span class="pre">teleport1_join()</span></code> should be replaced by a
+version that uses <code class="docutils literal notranslate"><span class="pre">&lt;&lt;</span></code> in place of <code class="docutils literal notranslate"><span class="pre">+</span></code>.</p>
+<div class="literal-block-wrapper docutils container" id="teleport1-bind">
+<div class="code-block-caption"><span class="caption-number">Listing 30 </span><span class="caption-text">A quantum kernel function that implements quantum teleportation using <code class="docutils literal notranslate"><span class="pre">bind()</span></code>.</span><a class="headerlink" href="#teleport1-bind" title="Link to this code">¶</a></div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="n">PROTECT</span><span class="w"> </span><span class="n">QExpr</span><span class="w"> </span><span class="n">teleport1_bind</span><span class="p">(</span><span class="n">qbit</span><span class="o">&amp;</span><span class="w"> </span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">qbit</span><span class="o">&amp;</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">qbit</span><span class="o">&amp;</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos">2</span><span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="linenos">3</span><span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="linenos">4</span><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="n">bell00</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">alice</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">))</span>
+<span class="linenos">5</span><span class="w">            </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">bob</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">);</span>
+<span class="linenos">6</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<p>We can now invoke this algorithm by evaluating <code class="docutils literal notranslate"><span class="pre">teleport1_bind()</span></code> after Alice
+has prepared her qubit in state <span class="math notranslate nohighlight">\(\ket{1}\)</span>. In this case we find that no
+matter how many times we run the algorithm, Bob always results in a qubit in
+state <span class="math notranslate nohighlight">\(\ket{1}\)</span>, as expected.</p>
+</section>
+<section id="multi-qubit-teleportation">
+<h2>Multi-qubit teleportation<a class="headerlink" href="#multi-qubit-teleportation" title="Link to this heading">¶</a></h2>
+<p>In this section we will extend single-qubit quantum teleportation to a protocol that teleports
+<span class="math notranslate nohighlight">\(N\)</span> qubits for an arbitrary <span class="math notranslate nohighlight">\(N\)</span>. The protocol
+requires <span class="math notranslate nohighlight">\(N\)</span> pairs of qubits in a Bell state and performs the single-qubit
+teleportation sequence for each qubit.</p>
+<p>A first attempt at multi-qubit teleportation would be just to call the
+<code class="docutils literal notranslate"><span class="pre">teleport1()</span></code> function <span class="math notranslate nohighlight">\(N\)</span> times in sequence. However, with this
+approach Alice would prepare <span class="math notranslate nohighlight">\(N\)</span> single-qubit states, and it would not allow for an
+entangled state to be teleported.</p>
+<p>A next attempt would be for Alice to prepare her qubit state and then evaluate
+<code class="docutils literal notranslate"><span class="pre">teleport1_bind()</span></code> <span class="math notranslate nohighlight">\(N\)</span> times on each successive qubit. This can be
+achieved via a recursive function that returns a quantum kernel expression (see
+FLEQ Guide and Reference (Recursion)).</p>
+<div class="literal-block-wrapper docutils container" id="teleport-sequential">
+<div class="code-block-caption"><span class="caption-number">Listing 31 </span><span class="caption-text">A function that returns a recursive quantum kernel expression
+applying the quantum teleportation protocol to each triple of
+qubits in <code class="docutils literal notranslate"><span class="pre">qs</span></code>, <code class="docutils literal notranslate"><span class="pre">as</span></code>, and <code class="docutils literal notranslate"><span class="pre">bs</span></code>.</span><a class="headerlink" href="#teleport-sequential" title="Link to this code">¶</a></div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="n">QExpr</span><span class="w"> </span><span class="nf">teleport_sequential</span><span class="p">(</span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">qs</span><span class="p">,</span><span class="w"> </span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">as</span><span class="p">,</span><span class="w"> </span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">bs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos">2</span><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">qs</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="linenos">3</span><span class="w">                        </span><span class="c1">// if qs is empty:</span>
+<span class="linenos">4</span><span class="w">                            </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">(),</span>
+<span class="linenos">5</span><span class="w">                        </span><span class="c1">// if qs is non-empty:</span>
+<span class="linenos">6</span><span class="w">                            </span><span class="n">teleport1_bind</span><span class="p">(</span><span class="n">qs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">as</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">bs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="linenos">7</span><span class="w">                            </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">teleport_sequential</span><span class="p">(</span><span class="n">qs</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">as</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">bs</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+<span class="linenos">8</span><span class="w">    </span><span class="p">);</span>
+<span class="linenos">9</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<p>The recursive function <code class="docutils literal notranslate"><span class="pre">teleport_sequential</span></code> uses a classical conditional
+<code class="docutils literal notranslate"><span class="pre">cIf</span></code> to distinguish between a base case (when the <code class="docutils literal notranslate"><span class="pre">QList</span></code> <code class="docutils literal notranslate"><span class="pre">qs</span></code> is empty)
+and a recursive case (when <code class="docutils literal notranslate"><span class="pre">qs</span></code> is non-empty). It assumes that all three
+<code class="docutils literal notranslate"><span class="pre">QList</span></code> inputs have the same length. When they are all empty (have size 0),
+teleportation should do nothing and so returns the <code class="docutils literal notranslate"><span class="pre">qexpr::identity()</span></code> quantum
+kernel expression. In the recursive case, we will apply single-qubit
+teleportation (in the form of the <code class="docutils literal notranslate"><span class="pre">teleport1_bind()</span></code> function) on <code class="docutils literal notranslate"><span class="pre">qs[0]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">as[0]</span></code>, and <code class="docutils literal notranslate"><span class="pre">bs[0]</span></code> and then recursively call <code class="docutils literal notranslate"><span class="pre">teleport_sequential</span></code> on
+the tails of the three qubit lists (<code class="docutils literal notranslate"><span class="pre">qs+1</span></code>, <code class="docutils literal notranslate"><span class="pre">as+1</span></code>, and <code class="docutils literal notranslate"><span class="pre">bs+1</span></code>).</p>
+<p>For example, if the length of the three qubit lists is 2, then
+<code class="docutils literal notranslate"><span class="pre">teleport_sequential(qs,</span> <span class="pre">as,</span> <span class="pre">bs)</span></code> will be unrolled to the following sequence:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">teleport1_bind</span><span class="p">(</span><span class="n">qs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="k">as</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">teleport_sequential</span><span class="p">(</span><span class="n">qs</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="k">as</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">bs</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Then, because <code class="docutils literal notranslate"><span class="pre">(qs+1).size()</span> <span class="pre">==</span> <span class="pre">1</span></code>, the call to <code class="docutils literal notranslate"><span class="pre">teleport_sequential()</span></code> will
+be unrolled again:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">teleport1_bind</span><span class="p">(</span><span class="n">qs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="k">as</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+  <span class="o">+</span> <span class="n">teleport1_bind</span><span class="p">((</span><span class="n">qs</span><span class="o">+</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="k">as</span><span class="o">+</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="n">bs</span><span class="o">+</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+  <span class="o">+</span> <span class="n">teleport_sequential</span><span class="p">(</span><span class="n">qs</span><span class="o">+</span><span class="mi">2</span><span class="p">,</span> <span class="k">as</span><span class="o">+</span><span class="mi">2</span><span class="p">,</span> <span class="n">bs</span><span class="o">+</span><span class="mi">2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">(qs+1)[0]</span></code> is the same as <code class="docutils literal notranslate"><span class="pre">qs[1]</span></code>. Finally, because
+<code class="docutils literal notranslate"><span class="pre">(qs+2).size()</span> <span class="pre">==</span> <span class="pre">0</span></code>, the final call to <code class="docutils literal notranslate"><span class="pre">teleport_sequential()</span></code> will
+unroll to the identity. Thus all together the call
+<code class="docutils literal notranslate"><span class="pre">teleport_sequential(qs,as,bs)</span></code> becomes</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">teleport1_bind</span><span class="p">(</span><span class="n">qs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="k">as</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">teleport1_bind</span><span class="p">(</span><span class="n">qs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="k">as</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">bs</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>Putting this all together, the top-level evaluation call would prepare Alice’s
+state <span class="math notranslate nohighlight">\(\ket{\phi}\)</span> and call <code class="docutils literal notranslate"><span class="pre">teleport_sequential</span></code>. Here, we will prepare
+Alice’s state to be the GHZ state
+<span class="math notranslate nohighlight">\(\frac{1}{\sqrt{2}}(\ket{0\cdots0} + \ket{1\cdots 1})\)</span> as illustrated in the
+example <code class="docutils literal notranslate"><span class="pre">qexpr_ghz.cpp</span></code> (see <a class="reference internal" href="../dgr/samples.html#samples"><span class="std std-ref">Code Samples</span></a>).</p>
+<div class="literal-block-wrapper docutils container" id="teleport-sequential-eval">
+<div class="code-block-caption"><span class="caption-number">Listing 32 </span><span class="caption-text">An evaluation call of <code class="docutils literal notranslate"><span class="pre">teleport_sequential</span></code> after preparing <span class="math notranslate nohighlight">\(\ket{\varphi}\)</span> as a GHZ state.</span><a class="headerlink" href="#teleport-sequential-eval" title="Link to this code">¶</a></div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">N</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="linenos">2</span><span class="w">    </span><span class="n">qbit</span><span class="w"> </span><span class="nf">listable</span><span class="p">(</span><span class="n">qs</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="p">);</span>
+<span class="linenos">3</span><span class="w">    </span><span class="n">qbit</span><span class="w"> </span><span class="nf">listable</span><span class="p">(</span><span class="n">as</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="p">);</span>
+<span class="linenos">4</span><span class="w">    </span><span class="n">qbit</span><span class="w"> </span><span class="nf">listable</span><span class="p">(</span><span class="n">bs</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="p">);</span>
+<span class="linenos">5</span>
+<span class="linenos">6</span><span class="w">    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">ghz</span><span class="p">(</span><span class="n">qs</span><span class="p">)</span><span class="w"> </span><span class="c1">// Prepare |phi&gt;</span>
+<span class="linenos">7</span><span class="w">                    </span><span class="o">+</span><span class="w"> </span><span class="n">teleport_sequential</span><span class="p">(</span><span class="n">qs</span><span class="p">,</span><span class="w"> </span><span class="n">as</span><span class="p">,</span><span class="w"> </span><span class="n">bs</span><span class="p">));</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="minimizing-barriers-and-map">
+<h2>Minimizing barriers and <code class="docutils literal notranslate"><span class="pre">map</span></code><a class="headerlink" href="#minimizing-barriers-and-map" title="Link to this heading">¶</a></h2>
+<p>Because each call to <code class="docutils literal notranslate"><span class="pre">teleport1_bind</span></code> has a barrier in the form of a <code class="docutils literal notranslate"><span class="pre">bind</span></code>,
+<code class="docutils literal notranslate"><span class="pre">teleport_parallel(qs,</span> <span class="pre">as,</span> <span class="pre">bs)</span></code> will result in more than <span class="math notranslate nohighlight">\(n\)</span> quantum basic blocks
+(QBBs) (see FLEQ Guide and Reference (Barriers and binding)). While such barriers are logically valid, they
+prevent the compiler from optimizing across boundaries, which can make compilation
+redundant and expensive. It can also result in less-ideal placements (which are
+determined for each QBB individually) and scheduling. Logically, the
+<span class="math notranslate nohighlight">\(n\)</span>-qubit teleportation protocol really should have three separate components:</p>
+<ol class="arabic simple">
+<li><p>First, Alice and Bob prepare their joint Bell states.</p></li>
+<li><p>Second, Alice prepares her state <span class="math notranslate nohighlight">\(\ket{\varphi}\)</span> and measures her qubits.</p></li>
+<li><p>Finally, Bob receives Alice’s measurements and performs his own corrections.</p></li>
+</ol>
+<p>These three states could be achieved using their own recursive functions over
+the qubit lists, as in <code class="docutils literal notranslate"><span class="pre">teleport_sequential()</span></code>. But each of these three cases
+has a similar structure that we can exploit. Consider:</p>
+<ol class="arabic simple">
+<li><p>Preparing the joint Bell states takes as input two <code class="docutils literal notranslate"><span class="pre">QList</span></code> values <code class="docutils literal notranslate"><span class="pre">as</span></code>
+and <code class="docutils literal notranslate"><span class="pre">bs</span></code> and maps <code class="docutils literal notranslate"><span class="pre">bell00()</span></code> over each pair <code class="docutils literal notranslate"><span class="pre">as[i]</span></code> and <code class="docutils literal notranslate"><span class="pre">bs[i]</span></code>.</p></li>
+<li><p>Alice’s preparations involve first preparing the state <span class="math notranslate nohighlight">\(\ket{\varphi}\)</span>
+and then mapping the function <code class="docutils literal notranslate"><span class="pre">QExpr</span> <span class="pre">alice(qbit&amp;</span> <span class="pre">q,</span> <span class="pre">qbit&amp;</span> <span class="pre">a,</span> <span class="pre">bool&amp;</span> <span class="pre">x,</span> <span class="pre">bool&amp;</span> <span class="pre">y)</span></code>
+over <code class="docutils literal notranslate"><span class="pre">qs[i]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">as[i]</span></code>, and two boolean arrays <code class="docutils literal notranslate"><span class="pre">xs[i]</span></code> and <code class="docutils literal notranslate"><span class="pre">ys[i]</span></code>.</p></li>
+<li><p>Bob’s corrections involve mapping the function
+<code class="docutils literal notranslate"><span class="pre">QExpr</span> <span class="pre">bob(qbit&amp;</span> <span class="pre">b,</span> <span class="pre">bool</span> <span class="pre">x,</span> <span class="pre">bool</span> <span class="pre">y)</span></code> over <code class="docutils literal notranslate"><span class="pre">bs[i]</span></code>, <code class="docutils literal notranslate"><span class="pre">xs[i]</span></code>, and <code class="docutils literal notranslate"><span class="pre">ys[i]</span></code>.</p></li>
+</ol>
+<p>Each of these three cases (as well as <code class="docutils literal notranslate"><span class="pre">teleport_sequential()</span></code> itself) involves
+mapping a single-qubit <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> function over one or more <code class="docutils literal notranslate"><span class="pre">QList</span></code> values or
+arrays. In fact, this is such a commonly occurring pattern that FLEQ provides a
+higher-order functional utility called <code class="docutils literal notranslate"><span class="pre">qexpr::map()</span></code> in the header file
+<code class="docutils literal notranslate"><span class="pre">qexpr_utils.h</span></code> (see FLEQ Guide and Reference (Higher-order <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> functions)).</p>
+<p>The first argument to <code class="docutils literal notranslate"><span class="pre">qexpr::map(f,</span> <span class="pre">qs,</span> <span class="pre">...)</span></code> is a function pointer <code class="docutils literal notranslate"><span class="pre">f</span></code>,
+which takes at least one qubit argument and returns a <code class="docutils literal notranslate"><span class="pre">QExpr</span></code>. The next
+argument is a <code class="docutils literal notranslate"><span class="pre">QList</span></code> <code class="docutils literal notranslate"><span class="pre">qs</span></code>, and the remaining arguments are
+either additional <code class="docutils literal notranslate"><span class="pre">QList</span></code> variables, array variables, or non-arrays, each of
+which is passed as an additional argument to <code class="docutils literal notranslate"><span class="pre">f</span></code>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">qexpr::map()</span></code> utility is best understood via example.</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">qexpr::map(bell00,</span> <span class="pre">as,</span> <span class="pre">bs)</span></code> maps <code class="docutils literal notranslate"><span class="pre">bell00()</span></code> over each pair of qubits in
+the <code class="docutils literal notranslate"><span class="pre">QList</span></code> values <code class="docutils literal notranslate"><span class="pre">as</span></code> and <code class="docutils literal notranslate"><span class="pre">bs</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">qexpr::map(alice,</span> <span class="pre">qs,</span> <span class="pre">as,</span> <span class="pre">xs,</span> <span class="pre">ys)</span></code> maps <code class="docutils literal notranslate"><span class="pre">alice()</span></code> over each tuple
+<code class="docutils literal notranslate"><span class="pre">(qs[i],</span> <span class="pre">as[i],</span> <span class="pre">xs[i],</span> <span class="pre">ys[i])</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">qexpr::map(bob,</span> <span class="pre">bs,</span> <span class="pre">xs,</span> <span class="pre">ys)</span></code> maps <code class="docutils literal notranslate"><span class="pre">bob()</span></code> over each tuple
+<code class="docutils literal notranslate"><span class="pre">(bs[i],</span> <span class="pre">xs[i],</span> <span class="pre">ys[i])</span></code>.</p></li>
+</ol>
+<p>Thus, we can lift each component of quantum teleportation to <span class="math notranslate nohighlight">\(n\)</span> qubits
+easily, without even writing any additional <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> functions, and put them
+together smoothly as follows:</p>
+<div class="literal-block-wrapper docutils container" id="teleport-parallel">
+<div class="code-block-caption"><span class="caption-number">Listing 33 </span><span class="caption-text">A version of <span class="math notranslate nohighlight">\(n\)</span>-qubit teleportation with only two total barriers.</span><a class="headerlink" href="#teleport-parallel" title="Link to this code">¶</a></div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="n">PROTECT</span>
+<span class="linenos">2</span><span class="n">QExpr</span><span class="w"> </span><span class="n">teleport_parallel</span><span class="p">(</span><span class="n">QExpr</span><span class="w"> </span><span class="n">phi</span><span class="p">,</span><span class="w"> </span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">qs</span><span class="p">,</span><span class="w"> </span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">as</span><span class="p">,</span><span class="w"> </span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">bs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos">3</span><span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">xs</span><span class="p">[</span><span class="n">qs</span><span class="p">.</span><span class="n">size</span><span class="p">()];</span>
+<span class="linenos">4</span><span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">ys</span><span class="p">[</span><span class="n">qs</span><span class="p">.</span><span class="n">size</span><span class="p">()];</span>
+<span class="linenos">5</span>
+<span class="linenos">6</span><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">map</span><span class="p">(</span><span class="n">bell00</span><span class="p">,</span><span class="w"> </span><span class="n">as</span><span class="p">,</span><span class="w"> </span><span class="n">bs</span><span class="p">)</span>
+<span class="linenos">7</span><span class="w">        </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="p">(</span><span class="n">phi</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">map</span><span class="p">(</span><span class="n">alice</span><span class="p">,</span><span class="w"> </span><span class="n">qs</span><span class="p">,</span><span class="w"> </span><span class="n">as</span><span class="p">,</span><span class="w"> </span><span class="n">xs</span><span class="p">,</span><span class="w"> </span><span class="n">ys</span><span class="p">))</span>
+<span class="linenos">8</span><span class="w">        </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">map</span><span class="p">(</span><span class="n">bob</span><span class="p">,</span><span class="w"> </span><span class="n">bs</span><span class="p">,</span><span class="w"> </span><span class="n">xs</span><span class="p">,</span><span class="w"> </span><span class="n">ys</span><span class="p">);</span>
+<span class="linenos">9</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<p>To test our implementation, we will have Alice prepare a GHZ state on <code class="docutils literal notranslate"><span class="pre">qs</span></code> and
+then analyze Bob’s qubits after teleportation. If teleportation succeeds,
+Bob’s qubits will then be in the original GHZ state.</p>
+<div class="literal-block-wrapper docutils container" id="teleport-parallel-eval">
+<div class="code-block-caption"><span class="caption-number">Listing 34 </span><span class="caption-text">Evaluating <span class="math notranslate nohighlight">\(n\)</span>-qubit teleportation via <code class="docutils literal notranslate"><span class="pre">teleport_parallel</span></code> on the Intel® Quantum Simulator.</span><a class="headerlink" href="#teleport-parallel-eval" title="Link to this code">¶</a></div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kt">void</span><span class="w"> </span><span class="nf">teleportN</span><span class="p">(</span><span class="n">iqsdk</span><span class="o">::</span><span class="n">FullStateSimulator</span><span class="o">&amp;</span><span class="w"> </span><span class="n">device</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos"> 2</span>
+<span class="linenos"> 3</span><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">N</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="linenos"> 4</span><span class="w">    </span><span class="n">qbit</span><span class="w"> </span><span class="n">listable</span><span class="p">(</span><span class="n">qs</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="p">);</span>
+<span class="linenos"> 5</span><span class="w">    </span><span class="n">qbit</span><span class="w"> </span><span class="n">listable</span><span class="p">(</span><span class="n">as</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="p">);</span>
+<span class="linenos"> 6</span><span class="w">    </span><span class="n">qbit</span><span class="w"> </span><span class="n">listable</span><span class="p">(</span><span class="n">bs</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="p">);</span>
+<span class="linenos"> 7</span>
+<span class="linenos"> 8</span><span class="w">    </span><span class="c1">// Teleportation with |phi&gt;=1/sqrt(2)(|0...0&gt; + |1...1&gt;)</span>
+<span class="linenos"> 9</span><span class="w">    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">teleport_parallel</span><span class="p">(</span><span class="n">ghz</span><span class="p">(</span><span class="n">qs</span><span class="p">),</span><span class="w"> </span><span class="n">qs</span><span class="p">,</span><span class="w"> </span><span class="n">as</span><span class="p">,</span><span class="w"> </span><span class="n">bs</span><span class="p">));</span>
+<span class="linenos">10</span>
+<span class="linenos">11</span><span class="w">    </span><span class="c1">// At the end, bs should be in the state |phi&gt;=1/sqrt(2)(|0...0&gt; + |1...1&gt;)</span>
+<span class="linenos">12</span><span class="w">    </span><span class="c1">// (up to a global phase)</span>
+<span class="linenos">13</span><span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">outputRefs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">to_ref_wrappers</span><span class="p">(</span><span class="n">bs</span><span class="p">);</span>
+<span class="linenos">14</span><span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">probsAfter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">getProbabilities</span><span class="p">(</span><span class="n">outputRefs</span><span class="p">,</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="mf">0.01</span><span class="p">);</span>
+<span class="linenos">15</span>
+<span class="linenos">16</span><span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Expecting GHZ state |0...0&gt; + |1...1&gt;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="linenos">17</span><span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Qubits bs after teleportation:</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="linenos">18</span><span class="w">    </span><span class="n">iqsdk</span><span class="o">::</span><span class="n">FullStateSimulator</span><span class="o">::</span><span class="n">displayProbabilities</span><span class="p">(</span><span class="n">probsAfter</span><span class="p">);</span>
+<span class="linenos">19</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<p>The result of this evaluation call is, as expected:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="gp"> $ </span>./qexpr_teleport
+<span class="linenos">2</span><span class="go">   Expecting GHZ state |0...0&gt; + |1...1&gt;</span>
+<span class="linenos">3</span><span class="go">   Qubits bs after teleportation:</span>
+<span class="linenos">4</span><span class="go">   Printing probability map of size 2</span>
+<span class="linenos">5</span><span class="go">   |000⟩ : 0.5                           |111⟩ : 0.5</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Intel® Quantum SDK API</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dgr/index.html">Developers Guide and Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fleq/index.html">FLEQ Guide and Reference</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="tutorials.html">A Tour of GHZ examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials.html#using-release-quantum-state">Using <code class="docutils literal notranslate"><span class="pre">release_quantum_state()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials.html#writing-variational-algorithms">Writing Variational Algorithms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials.html#using-qbit-variables">Using <code class="docutils literal notranslate"><span class="pre">qbit</span></code> variables</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Quantum Teleportation with FLEQ</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../citations.html">Citations</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Tutorials</a><ul>
+      <li>Previous: <a href="tutorials.html" title="previous chapter">A Tour of GHZ examples</a></li>
+      <li>Next: <a href="../api/index.html" title="next chapter">API Reference</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024 Intel Corporation. All Rights Reserved.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/tutorial/qexpr-teleport.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

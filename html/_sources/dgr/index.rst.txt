@@ -1,0 +1,16 @@
+.. _dgr:
+
+Developers Guide and Reference
+==============================
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   attributions
+   overview
+   intro_to_QC
+   usage
+   backends
+   advanced
+   support

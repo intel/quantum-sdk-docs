@@ -1,0 +1,6 @@
+How to Cite
+============
+
+To cite the |IQSDK|, please reference:
+
+Khalate, P., Wu, X.-C., Premaratne, S., Hogaboam, J., Holmes, A., Schmitz, A., Guerreschi, G. G., Zou, X. & Matsuura, A. Y., `arXiv:2202.11142 (2022) <https://doi.org/10.48550/arXiv.2202.11142>`_.

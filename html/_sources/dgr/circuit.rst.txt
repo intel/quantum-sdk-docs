@@ -1,0 +1,25 @@
+Circuit Printing & LaTeX
+-------------------------
+
+To invoke the circuit printer, user the ``-P`` flag:
+
+.. code-block:: console
+
+   $ ./intel-quantum-compiler -P console quantum_algorithm.cpp
+   $ ./intel-quantum-compiler -P tex quantum_algorithm.cpp
+   $ ./intel-quantum-compiler -P json quantum_algorithm.cpp
+
+For each ``quantum_kernel`` function in the source code compiled, the circuit printer
+feature will output a representation of the quantum kernel to the target
+specified. The ``console`` target will result in ascii-style circuits
+being displayed to the console. The ``tex`` and ``json`` targets will output,
+for each ``quantum_kernel`` function, a separate ``.tex`` or ``.json`` file.
+
+A TeX distribution on your local machine with the ``qcircuit`` package
+(maintained at the Comprehensive TeX Archive Network (CTAN)) and its
+dependencies are required to produce an image or PDF file from the ``.tex``
+file. Many options for TeX distributions exist for each platform. Those familiar
+with the LaTeX typesetting language will be able to incorporate the ``.tex``
+file or part of its contents into their projects. Those familiar with the
+commands of the ``qcircuit`` package may customize and extend the diagram at
+will.

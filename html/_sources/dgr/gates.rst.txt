@@ -1,0 +1,162 @@
+.. _gates:
+
+Supported Quantum Logic Gates
+=============================
+
+Below is a list of quantum logic gates supported in the |IQSDK| and their signatures.
+To see the matrix definitions for these gates, refer to the file:
+
+.. code-block:: console
+
+   <path to Intel Quantum SDK>/iqc/include/clang/Quantum/quintrinsics.h
+
+
+
+1.  Hadamard (H)
+
+       ``void H(qbit& q);``
+
+2.  Pauli X (X)
+
+       ``void X(qbit& q);``
+
+       This is equivalent to a rotation around the X-axis by :math:`\pi`.
+
+3.  Pauli Y (Y)
+
+       ``void Y(qbit& q);``
+
+       This is equivalent to a rotation around the Y-axis by :math:`\pi`.
+
+4.  Pauli Z (Z)
+
+       ``void Z(qbit& q);``
+
+       This is equivalent to a rotation around the Z-axis by :math:`\pi`.
+
+5.  Phase (S)
+
+       ``void S(qbit& q);``
+
+       Phase shift with half the rotation of Z (i.e. a :math:`\pi/2` rotation). Equivalent to :math:`RZ(\pi/2)`.
+
+6.  Phase Inverse (Sdag)
+
+       ``void Sdag(qbit& q);``
+
+       Conjugate transpose of S.
+
+.. note::
+
+   Dag here is an abbreviation for "dagger", which denotes the conjugate transpose of a Hermitian matrix.
+
+7.  T
+
+       ``void T(qbit& q);``
+
+       Phase shift, with one quarter the rotation of Z (i.e. a :math:`\pi/4` rotation). Equivalent to :math:`RZ(\pi/4)`.
+
+8.  T Inverse (Tdag)
+
+       ``void Tdag(qbit& q);``
+
+       Conjugate transpose of T.
+
+9.  X axis Rotation (RX)
+
+       ``void RX(qbit& q, double angle);``
+
+10. Y axis Rotation (RY)
+
+       ``void RY(qbit& q, double angle);``
+
+11. Z axis rotation (RZ)
+
+       ``void RZ(qbit& q, double angle);``
+
+12. Controlled Z (CZ)
+
+       ``void CZ(qbit& ctrl, qbit& target);``
+
+13. CNOT
+
+       ``void CNOT(qbit& ctrl, qbit& target);``
+
+14. SWAP
+
+       ``void SWAP(qbit& ctrl, qbit& target);``
+
+15. Toffoli
+
+       ``void Toffoli(qbit& ctrl0, qbit& ctrl1, qbit& tgt);``
+
+       Toffoli gate with two controls.
+
+16. PrepZ
+
+       ``void PrepZ(qbit& q);``
+
+       Initialize/reset qubit to the :math:`\ket{0}` computational state.
+
+17. PrepX
+
+       ``void PrepX(qbit& q);``
+
+       Initialize/reset qubit to the :math:`\ket{+}` computational state.
+
+18. PrepY
+
+       ``void PrepY(qbit& q);``
+
+       Initialize/reset qubit to the :math:`\ket{R}` computational state.
+
+
+19. MeasZ
+
+       ``void MeasZ(qbit& q, bool& c);``
+
+       ``void MeasZ(qbit& q, cbit& c);``
+
+       Measure the qubit ``q`` in the :math:`\ket{0}` or :math:`\ket{1}` computational states and
+       store the result in ``c``.
+
+20. MeasX
+
+       ``void MeasX(qbit& q, bool& c);``
+
+       ``void MeasX(qbit& q, cbit& c);``
+
+       Measure the qubit ``q`` in the :math:`\ket{+}` or :math:`\ket{-}` computational states and
+       store the result in ``c``.
+
+21. MeasY
+
+       ``void MeasY(qbit& q, bool& c);``
+
+       ``void MeasY(qbit& q, cbit& c);``
+
+       Measure the qubit ``q`` in the :math:`\ket{R}` or :math:`\ket{L}` computational states and
+       store the result in ``c``.
+
+
+22. CPhase
+
+       ``void CPhase(qbit& ctrl, qbit& target, double angle);``
+
+       Controlled Phase gate.
+
+23. XY-plane Rotation
+
+       ``void RXY(qbit& q, double theta, double phi);``
+
+       Define a rotation in the XY-plane of the Bloch sphere (:ref:`RXY Matrix Representation<rxy-matrix-representation>`).
+
+24. Swap Alpha
+
+       ``void SwapA(qbit& q1, qbit& q2, double angle);``
+
+       Rotation in the :math:`\text{Span}\{ \ket{01} \ket{10} \}` subspace.
+
+.. _native:
+       
+.. include:: native.rst

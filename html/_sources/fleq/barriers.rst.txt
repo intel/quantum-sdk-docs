@@ -1,0 +1,205 @@
+
+
+.. _bind:
+
+Barriers and binding
+********************
+
+.. _QBB-barriers:
+
+Quantum basic blocks and barriers
+----------------------------------
+
+Quantum programming languages often provide *circuit barriers* which prevent
+optimization across a boundary. That is, a barrier guarantees that all gates
+that come before it are are executed before any of the gates that come after. In
+the |Intel| Quantum SDK, every two top-level ``quantum_kernel`` function
+calls or FLEQ evaluation calls are separated implicitly by a barrier;
+in other words, barriers separate any two
+QBBs. Each QBB is a standalone block of quantum logic, and does not know a priori
+what quantum logic is executed before or after it. As a result, each QBB must be
+implicitly bookended by circuit barriers.
+
+Consider an example of two separate evaluation calls to a unitary not gate.
+
+.. code-block:: C++
+
+  qexpr::eval_hold(qexpr::_X(q)); // 1 QBB with 1 gate
+  qexpr::eval_hold(qexpr::_X(q)); // 1 QBB with 1 gate
+
+These two evaluation calls produce two separate QBBs, each containing one gate.
+If, however, these quantum kernel expressions were joined together and executed in
+a single evaluation call, and thus a single QBB, the QBB would be optimized by the
+compiler, canceling out both gates and producing an empty QBB with zero gates.
+
+.. code-block:: C++
+
+  qexpr::eval_hold(qexpr::_X(q) + qexpr::_X(q)); // 1 optimized QBB with 0 gates
+
+Barriers in the SDK have the additional property that measurement outcomes
+executed before the barrier are not returned from the backend to the classical
+runtime (i.e. accessible by the program) until after the barrier. In this sense,
+separate ``quantum_kernel`` function calls or FLEQ evaluation calls also act as a
+"measurement return barrier". For example, a measurement in a quantum kernel
+expression joined with a conditional ``cIf`` statement (see :ref:`branching`) will
+*not* correctly propagate the measurement result to the conditional because they
+occur in the same QBB. Consider the following example:
+
+.. code-block:: C++
+
+  bool b = true;
+  // WRONG: Always executes H(q2) because the measurement result of q1
+  // is not written to b until the end of the current QBB.
+  qexpr::eval_hold(qexpr::_MeasZ(q1, b)
+                   +
+                   qexpr::cIf(b, qexpr::_H(q2), qexpr::identity()));
+
+On the other hand, if the measurement and conditional calls occur in separate
+evaluation calls, there is an implicit barrier between them, which will produce
+correct results.
+
+
+.. code-block:: C++
+
+  bool b = true;
+  qexpr::eval_hold(qexpr::_MeasZ(q1, b));
+  // Measurement results are written to b a the end of the above QBB,
+  // and so are available by the start of the next QBB.
+  qexpr::eval_hold(qexpr::cIf(b, qexpr::_H(q2), qexpr::identity());
+
+
+Bind
+-----
+
+While separate ``quantum_kernel`` functions and evaluation calls act as a
+barrier, it can also be useful for programmers to insert their own barriers
+within a single quantum kernel expression, for the purposes of expressivity,
+debugging, or branching control. This is provided by the ``qexpr::bind``
+functionality, which is also referred to as a "barriered join". A ``bind`` combines
+two quantum kernel expressions much in the same way as an ordinary ``join``, but
+acts as a barrier between them. Under the hood, the ``bind`` function produces
+two separate QBBs, one for each quantum kernel expression, which implicitly imposes
+the barrier.
+
+There are four variations on the ``bind`` method.
+
+``QExpr qexpr::bind(QExpr e1, QExpr e2)``
+
+  Returns the barriered join of
+  ``e1`` with ``e2`` in *sequential order*, meaning that it evaluates
+  ``e1`` followed by ``e2``.
+
+``e1 << e2``
+
+  Shorthand for ``qexpr::bind(e1, e2)``. Analogous to ``e1 + e2``.
+
+``e1 >> e2``
+
+  Binds the quantum kernel expressions in *composition order*, meaning that it evaluates
+  ``e2`` followed by ``e1``. Analogous to ``e1 * e2``.
+
+``QExpr qexpr::fence(QExpr e)``
+
+  Shorthand for ``qexpr::bind(qexpr::identity(), e)``.
+
+To remember the difference between left shift ``e1 << e2`` and right shift
+``e1 >> e2`` operators for quantum kernel expressions, recall that sequential
+composition aligns with the left shift operator for stream output e.g.
+``std::cout << "Hello " << "World!"`` where "Hello " and "World!" are composed
+in sequential order.
+
+A ``bind`` call is logically equivalent to a ``join`` call in nearly every case except
+when acting as a measurement barrier. However,
+whereas the exclusive use of ``join`` ensures that at runtime, exactly one QBB is issued
+per evaluation call, even with unresolved branching (see :ref:`branching`), each call to ``bind``
+increases the number of QBBs issued at runtime per evaluation call by one (for that branch) with the order of
+the issuing as specified by the ordering or directionality of the ``bind``. Because each QBB
+is bookened by circuit barriers and the end barrier is also a measurement return barrier,
+``bind`` is the direct analog of the barrier for ``QExpr``. There are three common reasons
+to use ``bind`` over ``join``:
+
+#. **Debugging.** As discussed in :ref:`printing`, FLEQ compilation uses the PCOAST graph as a
+   quantum IR. Due to its level of abstraction, it can be difficult to determine the gate
+   sequence used to form the PCOAST graph representation, obscuring errors in the gate
+   logic. ``bind`` can be used to prevent some of the implicit optimizations to better debug
+   gate logic errors. When convinced of the logical correctness, a programmer can change the ``bind``'s
+   to ``join``'s to regain the optimization and efficiency.
+
+#. **Branching on measurement outcomes.** As discussed in :ref:`QBB-barriers`,
+   barriers can be necessary to separate measurements from conditionals that depend
+   on those measurements, like a ``cIf``. For example, consider a
+   qubit reset function (logically equivalent to ``_PrepZ``) which measures the qubit and
+   conditioned on the outcome, applies an ``_X`` gate to the ``true`` case:
+
+   .. code-block:: C++
+
+     PROTECT QExpr resetQubit(qbit &q) {
+       cbit c = false;
+       return qexpr::_MeasZ(q, c) << qexpr::cIf(c, qexpr::_X(q), qexpr::identity());
+     }
+
+     PROTECT QExpr NOT_A_RESET(qbit &q) {
+       cbit c = false;
+       return qexpr::_MeasZ(q, c) + qexpr::cIf(c, qexpr::_X(q), qexpr::identity());
+     }
+
+   The first function uses ``bind`` to fuse the measurement to the conditional, thus ensuring the
+   measurement is performed and stored to ``c`` before evaluating the ``cIf``. The second case does
+   not use ``bind`` and is logically equivalent to only the measurement since ``c`` remains its initial value of
+   ``false`` when the ``cIf`` is evaluated.
+
+#. **Unresolved branching control.** As discussed in :ref:`branching`, FLEQ
+   compilation handles unresolved branching (in the absence of ``bind``) by
+   combinatorially building all possible QBBs and inserting classical branching
+   to select exactly one at runtime. This means that every ``join`` between two
+   unresolved ``cIf`` calls doubles the number of QBBs. This can cause an
+   exponential increase in the number and complexity of that branching, although
+   FLEQ compilation performs admirably in generating these branches
+   (on-the-order of thousands without a prohibitive increase in compile-time and
+   binary size). However, this exponential increase eventually will become
+   problematic if not controlled. One way to avoid this is by replacing
+   ``join``'s with ``bind``'s. By issuing multiple QBBs per evaluation, FLEQ
+   compilation no longer needs to generate every unique combination, but only
+   those bookended by the ``bind``.
+
+Each core FLEQ function has a different distributive or associative behavior with regards to ``bind``:
+
+ * ``qexp::control``, ``qexpr::power``, ``qexpr::printQuantumLogic``, and  ``qexpr::printDataList`` all distribute over ``bind``,
+   i.e. ``f(e1 << e2)`` is equivalent to ``f(e1) << f(e2)`` for ``f`` being one of these four functions.
+
+   All of these are intuitive except for ``power``. Consider that
+   ``power(2, e1 << e2)`` is equivalent
+   to ``power(2, e1) << power(2, e2)`` -- that is, ``e1 + e1 << e2 + e2`` -- and *not* ``e1 << e2 + e1 << e2``.
+   This is a known issue which
+   can be overcome by using a recursive version of power:
+
+    .. code-block:: C++
+
+      QExpr recursivePower(const int n, QExpr e) {
+        return qexpr::cIf(n == 0, qexpr::identity(),
+               qexpr::cIf(n > 0,  e + recursivePower(n-1, e),
+               qexpr::invert(e) + recursivePower(n+1, e)
+        ));
+      }
+
+ * ``qexpr::invert`` distributes in the analogous way to ``qexpr::join``, i.e. ``qexpr::invert(e1 << e2)``
+   is equivalent to ``qexpr::invert(e2) << qexpr::invert(e1)``. Note, this inversion of ordering also holds
+   for classical instructions attached to the quantum kernel expressions ``e1`` and ``e2``; see :ref:`classical`.
+
+ * ``qexpr::join`` is associative with ``bind``, not distributive. For example:
+
+   #. ``e1 + (e2 << e3)`` is equivalent to ``(e1 + e2) << e3``
+   #. ``(e1 << e2) + e3`` is equivalent to ``e1 << (e2 + e3)``
+   #.  ``e1 * (e2 << e3)`` is equivalent to ``e2 << (e1 * e3)``
+
+  * ``qexpr::cIf`` does not distribute over or associate with ``bind``. If the conditional is resolved, then just as described, the
+    resolved branch ``QExpr``, ``bind``-ed or not, is returned. If the conditional is not resolved, then the ``bind`` behavior is
+    dependent on the branch as expected. For example, ``cIf(b, e1, e2 << e3)`` generates a ``true`` branch which only represents the
+    QBB(s) for ``e1`` whereas the ``false`` branch represents the consecutive QBB(s) for ``e2`` followed by those for ``e3``. ``bind``
+    effectively distributes over ``cIf``, i.e. ``e1 << cIf(b, e2, e3)`` is logically equivalent to ``cIf(b, e1 << e2, e1 << e3)`` but
+    the branching in the IR will be different as the former represents the QBB(s) of ``e1``  which then branch between
+    ``e2`` and ``e3`` whereas the latter branches to one of two copies of ``e1`` which then branches to either ``e2`` or ``e3`` based
+    on the condition.
+
+
+Custom functions inherent their behavior with respects to ``bind`` from their constituent core function calls.

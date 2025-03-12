@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Writing New Algorithms &#8212; Intel® Quantum SDK API v1.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=45183d27"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Next Steps" href="next_steps.html" />
+    <link rel="prev" title="Getting Started" href="getting_started.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="writing-new-algorithms">
+<span id="new-algos"></span><h1>Writing New Algorithms<a class="headerlink" href="#writing-new-algorithms" title="Link to this heading">¶</a></h1>
+<p>Writing a new algorithm is as easy as writing C++ code. A basic template and
+example file can be found in <code class="docutils literal notranslate"><span class="pre">new_algo_start_here.cpp</span></code>. For a new <code class="docutils literal notranslate"><span class="pre">.cpp</span></code>
+file, the only additions needed to access quantum-specific functionality are:</p>
+<ol class="arabic">
+<li><p>Add the <code class="docutils literal notranslate"><span class="pre">#include</span> <span class="pre">&lt;clang/Quantum/quintrinsics.h&gt;</span></code> header which defines the
+quantum gates listed in <a class="reference internal" href="../dgr/gates.html#gates"><span class="std std-ref">Supported Quantum Logic Gates</span></a>, and add the
+<code class="docutils literal notranslate"><span class="pre">#include</span> <span class="pre">&lt;quantum_full_state_simulator_backend.h&gt;</span></code> header which defines the <code class="docutils literal notranslate"><span class="pre">FullStateSimulator</span></code>
+class.</p></li>
+<li><p>Declare the variable(s) that represent your quantum algorithm’s qubits as
+globally defined <code class="docutils literal notranslate"><span class="pre">qbit</span></code> data types.</p></li>
+<li><p>Before invoking any function containing quantum instructions, prepare the
+backend that will serve as the quantum hardware by instantiating an object
+of the desired class. The <code class="docutils literal notranslate"><span class="pre">FullStateSimulator</span></code> class provides access to
+both the Intel® Quantum Simulator and a Quantum Dot Simulator as backends.
+For more details on using the class methods, see <a class="reference internal" href="../dgr/full_state.html#full-state"><span class="std std-ref">Configuring the FullStateSimulator</span></a>,
+or see <a class="reference internal" href="../api/index.html#api"><span class="std std-ref">API Reference</span></a> for a complete description
+of the class’ methods. For details on using the simulators, see
+<a class="reference internal" href="../dgr/full_state.html#full-state"><span class="std std-ref">Configuring the FullStateSimulator</span></a> or <a class="reference internal" href="../dgr/qdsim.html#qdsim"><span class="std std-ref">Quantum Dot Simulator Backend</span></a>.</p></li>
+<li><p>Place all calls to quantum gates inside a function or method, not directly in
+<code class="docutils literal notranslate"><span class="pre">main()</span></code>. Add the function specifier <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> to the definition
+of functions and methods including quantum gates or other
+<code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions.</p>
+<p>These functions can declare and operate on classical (non-quantum) data
+types using typical scope rules. The compiler will move the classical
+calculation to have it available to a <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code>
+while also preventing the classical instruction from being sent to quantum
+hardware. A <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> function can have parameters of <code class="docutils literal notranslate"><span class="pre">qbit</span></code> type
+as long as the logic ultimately resolves unambiguously to a globally defined
+<code class="docutils literal notranslate"><span class="pre">qbit</span></code> variable. See <a class="reference internal" href="../dgr/programming.html#inlining"><span class="std std-ref">In-lining &amp; quantum_kernel functions</span></a> for a more detailed description.</p>
+</li>
+<li><p>Just like any C++ program, use the <code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">main()</span></code> function to run your
+primary computation. Conceptually, your program is a hybrid of traditional or
+“classical” components and quantum components. The quantum components are
+sent to the quantum backend when called in <code class="docutils literal notranslate"><span class="pre">main()</span></code>.</p></li>
+</ol>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Intel® Quantum SDK API</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Getting Started Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Writing New Algorithms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="next_steps.html">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../dgr/index.html">Developers Guide and Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fleq/index.html">FLEQ Guide and Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../citations.html">Citations</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Getting Started Guide</a><ul>
+      <li>Previous: <a href="getting_started.html" title="previous chapter">Getting Started</a></li>
+      <li>Next: <a href="next_steps.html" title="next chapter">Next Steps</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024 Intel Corporation. All Rights Reserved.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/getting_started/new_algos.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

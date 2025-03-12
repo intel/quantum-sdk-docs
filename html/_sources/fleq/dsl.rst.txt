@@ -1,0 +1,91 @@
+
+.. _dsl:
+
+Domain-specific languages using FLEQ
+------------------------------------
+
+This section will illustrate some techniques for using quantum kernel expressions and compile-time lists to implement domain-specific representations of programs, collectively known as domain specific languages (DSLs).
+
+For example, suppose a user wants to take as input a string indicating an
+:math:`n`-qubit basis state such as :math:`\ket{01+-}`, and prepare a ``QList``
+of length :math:`n` in that state. The format of the input string can be thought
+of as a simple DSL for specifying state preparations.
+
+To implement such a DSL, a user must write a ``QExpr`` function that takes as
+input the ``DataList`` and a ``QList`` and returns a quantum kernel expression.
+To start, the function ``stateToQExpr`` below returns the quantum kernel expression corresponding to a single character, while ``multiStateToQExpr`` recursively applies ``stateToQExpr`` to each character in a ``DataList``.
+
+.. code-block:: C++
+
+  QExpr stateToQExpr(qbit& q, const char c) {
+    return
+        qexpr::cIf(c == '0', qexpr::_PrepZ(q),
+        qexpr::cIf(c == '1', qexpr::_PrepZ(q) + qexpr::_X(q),
+        qexpr::cIf(c == '+', qexpr::_PrepX(q),
+        qexpr::cIf(c == '-', qexpr::_PrepX(q) + qexpr::_Z(q),
+        qexpr::cIf(c == 'R', qexpr::_PrepY(q),
+        qexpr::cIf(c == 'L', qexpr::_PrepY(q) + qexpr::_Z(q),
+        qexpr::exitAtCompile("prepState: Expected a character in the set {0,1,+,-,R,L}.")
+        ))))));
+  }
+
+  QExpr multiStateToQExpr(const qlist::QList qs, const datalist::DataList src) {
+      return qexpr::cIf(qs.size() == 0,
+                          qexpr::identity(),
+                          stateToQExpr(qs[0], src[0])
+                              + multiStateToQExpr(qs>>1, src>>1)
+      );
+  }
+
+Finally, the function ``prepState`` checks the input ``DataList`` and ensures it has the correct format, before stripping the beginning and ending characters that make up the ket syntax.
+
+.. code-block:: C++
+
+  QExpr prepState(const datalist::DataList src, const qlist::QList qs) {
+    return
+        qexpr::qassert(src[0] == '|',
+                "prepState: Expected a datalist of the form |state>")
+        +
+        qexpr::qassert(src[src.size()-1] == '>',
+                "prepState: Expected a datalist of the form |state>")
+        +
+        qexpr::qassert(src.size() == qs.size() + 2,
+                datalist::DataList("prepState: Expected a state of size ")
+                + datalist::DataList(qs.size()))
+        +
+        // Strip the ket from the datalist
+        multiStateToQExpr(qs, src("|",">") >> 1)
+        ;
+  }
+
+The function ``qassert`` is defined in ``qexpr_utils.h`` and will raise a
+compile-time error if the boolean condition is false.
+
+The full example is shown in the sample file ``state_preparation.cpp`` (see
+|DGR:Samples|).
+
+While the ``prepState`` function is rather straightforward, these features can be
+generalized to deal with more advanced DSL features, including persistent state
+and symbol tables. In these cases, a ``DataList`` representing the current state
+would be passed to each ``QExpr`` function and updated, similar to the concept
+of a state monad in functional programming.
+
+For example, suppose a user needs to process some input ``DataList`` into a
+different form before it can be used to construct a ``QExpr`` via a function
+``stateToQExpr``. Then the user may write the following function,
+``processInput``, which iteratively converts an input ``DataList`` into a
+``DataList`` of the correct form, before feeding the well-formed state to
+``stateToQExpr``.
+
+.. code-block:: C++
+
+  QExpr stateToQExpr(datalist::DataList state);
+  datalist::DataList updateState (datalist::DataList state, const char c);
+
+  QExpr processInput(datalist::DataList state, datalist::DataList input) {
+    return qexpr::cIf(input.size() == 0,
+                        stateToQExpr(state),
+                        processInput(updateState(state, input[0]),
+                                     input>>1)
+    );
+  }

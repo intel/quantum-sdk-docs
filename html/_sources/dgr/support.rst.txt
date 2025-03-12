@@ -1,0 +1,13 @@
+.. _dgr-support:
+
+Support and Bug Reporting
+=========================
+You can get technical support and report any bugs encountered by visiting
+`|Intel| Communities <https://community.intel.com/t5/Intel-Quantum-SDK/bd-p/intel-quantum-sdk>`_. This is also a great place to ask questions and share ideas.
+
+
+.. toctree::
+   :maxdepth: 3
+
+   issues
+   faq

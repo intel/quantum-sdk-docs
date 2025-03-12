@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Quantum Dot Simulator Backend &#8212; Intel® Quantum SDK API v1.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=45183d27"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Clifford Simulator Backend" href="clifford.html" />
+    <link rel="prev" title="Intel® Quantum Simulator Backend" href="iqs.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="quantum-dot-simulator-backend">
+<span id="qdsim"></span><h1>Quantum Dot Simulator Backend<a class="headerlink" href="#quantum-dot-simulator-backend" title="Link to this heading">¶</a></h1>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#simulation-of-qubits" id="id18">Simulation of Qubits</a></p></li>
+<li><p><a class="reference internal" href="#rotating-vs-laboratory-frame" id="id19">Rotating vs. Laboratory Frame</a></p></li>
+<li><p><a class="reference internal" href="#usage-in-conjunction-with-getamplitudes" id="id20">Usage in conjunction with <code class="docutils literal notranslate"><span class="pre">getAmplitudes()</span></code></a></p></li>
+<li><p><a class="reference internal" href="#using-quantum-dot-simulator-in-a-program" id="id21">Using Quantum Dot Simulator in a Program</a></p></li>
+<li><p><a class="reference internal" href="#important-points-on-quantum-dot-simulator" id="id22">Important Points on Quantum Dot Simulator</a></p>
+<ul>
+<li><p><a class="reference internal" href="#tip-for-faster-simulations" id="id23">Tip for Faster Simulations</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#compilation-with-quantum-dot-simulator-as-the-computing-backend" id="id24">Compilation with Quantum Dot Simulator as the Computing Backend</a></p></li>
+</ul>
+</nav>
+<p>Quantum Dot Simulator (QD Simulator) is a simulator reproducing the physics of
+a Quantum Dot (QD) qubit chip
+in software. Simulation of quantum systems is a field of great
+importance <span id="id1">[<a class="reference internal" href="../citations.html#id8" title="I. M. Georgescu, S. Ashhab, and Franco Nori. Quantum simulation. Rev. Mod. Phys., 86:153–185, Mar 2014. doi:10.1103/RevModPhys.86.153.">GAN14</a>]</span>. In quantum computing, there are benefits in accurately
+simulating quantum systems for the purpose of evaluating their strengths and
+weaknesses for use as qubits. Simulations help drive design decisions on the
+critical characteristics for physical realizations <span id="id2">[<a class="reference internal" href="../citations.html#id9" title="R. Kotlyar, S. Premaratne, G. Zheng, J. Corrigan, R. Pillarisetty, S. Neyens, O. Zietz, T. Watson, F. Luthi, F. Borjans, L. Lampert, E. Henry, H. George, S. Bojarski, J. Roberts, A. Y. Matsuura, and J. S. Clarke. Mitigating impact of defects on performance with classical device engineering of scaled si/sige qubit arrays. In 2022 International Electron Devices Meeting (IEDM), volume, 8.4.1-8.4.4. 2022. doi:10.1109/IEDM45625.2022.10019382.">KPZ+22</a>]</span>. Though there
+are many ways of performing quantum simulations, here we focus on
+Schrodinger evolution for simulating quantum dot qubits. This QD Simulator
+is used as the realistic qubit simulation backend of the Intel® Quantum SDK <span id="id3">[<a class="reference internal" href="../citations.html#id10" title="Pradnya Khalate, Xin-Chuan Wu, Shavindra Premaratne, Justin Hogaboam, Adam Holmes, Albert Schmitz, Gian Giacomo Guerreschi, Xiang Zou, and A. Y. Matsuura. An LLVM-based C++ compiler toolchain for variational hybrid quantum-classical algorithms and quantum accelerators. 2022. arXiv:2202.11142.">KWP+22</a>]</span> <span id="id4">[<a class="reference internal" href="../citations.html#id9" title="R. Kotlyar, S. Premaratne, G. Zheng, J. Corrigan, R. Pillarisetty, S. Neyens, O. Zietz, T. Watson, F. Luthi, F. Borjans, L. Lampert, E. Henry, H. George, S. Bojarski, J. Roberts, A. Y. Matsuura, and J. S. Clarke. Mitigating impact of defects on performance with classical device engineering of scaled si/sige qubit arrays. In 2022 International Electron Devices Meeting (IEDM), volume, 8.4.1-8.4.4. 2022. doi:10.1109/IEDM45625.2022.10019382.">KPZ+22</a>]</span>.</p>
+<section id="simulation-of-qubits">
+<h2><a class="toc-backref" href="#id18" role="doc-backlink">Simulation of Qubits</a><a class="headerlink" href="#simulation-of-qubits" title="Link to this heading">¶</a></h2>
+<p>Qubits are quantum mechanical systems with two distinct states, typically
+labeled <span class="math notranslate nohighlight">\(\ket{0}\)</span> and <span class="math notranslate nohighlight">\(\ket{1}\)</span> <span id="id5">[<a class="reference internal" href="../citations.html#id11" title="Joseph C. Bardin, Daniel H. Slichter, and David J. Reilly. Microwaves in quantum computing. IEEE Journal of Microwaves, 1(1):403-427, 2021. doi:10.1109/JMW.2020.3034071.">BSR21</a>]</span>, <span id="id6">[<a class="reference internal" href="../citations.html#id7" title="Michael A. Nielsen and Isaac L. Chuang. Quantum computation and quantum information. Volume 2. Cambridge university press Cambridge, 2010. doi:10.1017/CBO9780511976667.">NC10</a>]</span>. The
+current backend for quantum dot qubits utilizes
+qubit states encoded in the spin degree of freedom of single electrons
+<span id="id7">[<a class="reference internal" href="../citations.html#id12" title="AMJ Zwerver, T Krähenmann, TF Watson, Lester Lampert, Hubert C George, Ravi Pillarisetty, SA Bojarski, Payam Amin, SV Amitonov, JM Boter, and others. Qubits made by advanced semiconductor manufacturing. Nature Electronics, 5(3):184–190, 2022.">ZKrahenmannW+22</a>]</span>. These qubits are typically referred to as Loss-DiVincenzo qubits
+<span id="id8">[<a class="reference internal" href="../citations.html#id13" title="Daniel Loss and David P. DiVincenzo. Quantum computation with quantum dots. Phys. Rev. A, 57:120–126, Jan 1998. doi:10.1103/PhysRevA.57.120.">LD98</a>]</span>. Abstract qubits are simple systems with only two isolated levels.
+However, practical quantum systems are never quite as simple, with careful
+consideration required for selection of a suitable system to form a
+qubit <span id="id9">[<a class="reference internal" href="../citations.html#id14" title="David P. DiVincenzo. The physical implementation of quantum computation. Fortschritte der Physik, 48(9-11):771-783, 2000. doi:10.1002/1521-3978(200009)48:9/11&lt;771::AID-PROP771&gt;3.0.CO;2-E.">DiV00</a>]</span>. These requirements and the thought process behind the
+selection of some currently favored types of qubits were reviewed
+in <span id="id10">[<a class="reference internal" href="../citations.html#id15" title="Thaddeus D Ladd, Fedor Jelezko, Raymond Laflamme, Yasunobu Nakamura, Christopher Monroe, and Jeremy Lloyd O’Brien. Quantum computers. nature, 464(7285):45–53, 2010. doi:10.1038/nature08812.">LJL+10</a>]</span>. One important fact common to all of these qubits is the
+presence of a characteristic resonance frequency or natural frequency. The
+frequency usually refers to the energy difference (expressed as a frequency)
+between the qubit levels (computational states) of the quantum system being
+considered for digital gate-based quantum computing. Resonance frequencies for
+most types of qubits are 1 GHz to 30 GHz, though there are exceptions with
+much higher or lower frequencies.</p>
+<p>When using the QD Simulator backend, the simulation goes
+through the qubit control processor, the control electronics, to the simulated
+quantum dot qubits.
+The qubit control processor takes the compiled instruction sequence and the
+platform configuration files to generate the corresponding micro-instructions
+for the control electronics. The control electronics generate the RF
+and DC pulses with the correct parameters to interact with the
+quantum dot qubit chip. All the control flow and operations are modeled in
+simulation.</p>
+<p>The primary supported gates are <span class="math notranslate nohighlight">\(R_{xy}\left(\theta,\phi\right)\)</span>, referred to in code as <code class="docutils literal notranslate"><span class="pre">RXY</span></code>:</p>
+<div class="math notranslate nohighlight" id="rxy-matrix-representation">
+\[\begin{split}R_{xy}\left( \theta, \phi \right) &amp;= \cos\left(\frac{\theta}{2}\right)\hat{I}
+                                   -i\sin\left(\frac{\theta}{2}\right)
+                                   \left[\hat{X}\cos\phi + \hat{Y}\sin\phi\right] \\
+&amp;= \begin{bmatrix}
+   \cos\left(\frac{\theta}{2}\right) &amp; -i\sin\left(\frac{\theta}{2}\right)\left[\cos\phi - i\sin\phi\right]\\
+   -i\sin\left(\frac{\theta}{2}\right)\left[\cos\phi + i\sin\phi\right]  &amp; \cos\left(\frac{\theta}{2}\right) \\
+   \end{bmatrix}\end{split}\]</div>
+<p>and the two-qubit operation <span class="math notranslate nohighlight">\(CZ\)</span>:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\text{CZ} = \begin{bmatrix} 1 &amp; 0 &amp; 0 &amp; 0 \\
+                            0 &amp; 1 &amp; 0 &amp; 0 \\
+                            0 &amp; 0 &amp; 1 &amp; 0 \\
+                            0 &amp; 0 &amp; 0 &amp; -1\\
+            \end{bmatrix}\end{split}\]</div>
+<p>The physical implementation of CZ involves the use of a
+“Decoupled CZ operation” <span id="id11">[<a class="reference internal" href="../citations.html#id16" title="TF Watson, SGJ Philips, Erika Kawakami, DR Ward, Pasquale Scarlino, Menno Veldhorst, DE Savage, MG Lagally, Mark Friesen, SN Coppersmith, and others. A programmable two-qubit quantum processor in silicon. nature, 555(7698):633–637, 2018. doi:10.1038/nature25766.">WPK+18</a>]</span>. All
+the other operations available via the Intel® Quantum SDK will be constructed using these
+operations.</p>
+</section>
+<section id="rotating-vs-laboratory-frame">
+<h2><a class="toc-backref" href="#id19" role="doc-backlink">Rotating vs. Laboratory Frame</a><a class="headerlink" href="#rotating-vs-laboratory-frame" title="Link to this heading">¶</a></h2>
+<p>Typically, if time dependence of the system can be set aside, simulation of
+quantum systems is convenient and fast. For certain quantum systems, it is
+possible to craft unitary transformations to analytically discard the overhead
+due to the resonance frequency of each qubit <span id="id12">[<a class="reference internal" href="../citations.html#id17" title="Baladitya Suri. Transmon qubits coupled to superconducting lumped element resonators. PhD thesis, University of Maryland, 2015. URL: https://www.proquest.com/dissertations-theses/transmon-qubits-coupled-superconducting-lumped/docview/1702138107/se-2.">Sur15</a>]</span> <span id="id13">[<a class="reference internal" href="../citations.html#id18" title="Daniel A Steck. Quantum and atom optics. may 2020. Revision 0.13.1. URL: https://atomoptics.uoregon.edu/~dsteck/teaching/.">Ste20</a>]</span> <span id="id14">[<a class="reference internal" href="../citations.html#id7" title="Michael A. Nielsen and Isaac L. Chuang. Quantum computation and quantum information. Volume 2. Cambridge university press Cambridge, 2010. doi:10.1017/CBO9780511976667.">NC10</a>]</span>.
+This is typically referred to as moving into the <em>rotating frame</em> of the qubit.
+This terminology is apt since the qubit is always precessing and incrementing its
+phase around the <span class="math notranslate nohighlight">\(z\)</span>-axis at a rate given by its resonance frequency.
+A further analytical approximation, known as the <em>rotating wave approximation</em>
+<span id="id15">[<a class="reference internal" href="../citations.html#id19" title="Daniel Zeuch, Fabian Hassler, Jesse J. Slim, and David P. DiVincenzo. Exact rotating wave approximation. Annals of Physics, 423:168327, 2020. doi:10.1016/j.aop.2020.168327.">ZHSD20</a>]</span>, is usually required to make the time-dependence fully transparent.
+These transformations and approximations usually have the effect of drastically
+reducing the burden on simulation resources, since evolution will then happen
+at kHz or MHz scales instead of GHz scales.</p>
+<p>In the case of QD Simulator <span id="id16">[<a class="reference internal" href="../citations.html#id9" title="R. Kotlyar, S. Premaratne, G. Zheng, J. Corrigan, R. Pillarisetty, S. Neyens, O. Zietz, T. Watson, F. Luthi, F. Borjans, L. Lampert, E. Henry, H. George, S. Bojarski, J. Roberts, A. Y. Matsuura, and J. S. Clarke. Mitigating impact of defects on performance with classical device engineering of scaled si/sige qubit arrays. In 2022 International Electron Devices Meeting (IEDM), volume, 8.4.1-8.4.4. 2022. doi:10.1109/IEDM45625.2022.10019382.">KPZ+22</a>]</span>, neither the rotating frame
+nor the rotating wave approximation is used. Currently, the
+evolution of the coupled multi-quantum-dot system (faithful to Intel®’s quantum
+hardware) is performed in the <em>laboratory frame</em>. The laboratory frame is the
+original environment of the quantum system, where the natural frequencies of
+the qubits are fully visible. This also means that the qubits are constantly
+accumulating <span class="math notranslate nohighlight">\(Z\)</span>-phases as is the case for real qubits.</p>
+</section>
+<section id="usage-in-conjunction-with-getamplitudes">
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">Usage in conjunction with <code class="docutils literal notranslate"><span class="pre">getAmplitudes()</span></code></a><a class="headerlink" href="#usage-in-conjunction-with-getamplitudes" title="Link to this heading">¶</a></h2>
+<p>The Schrodinger evolution is carried out in a Hilbert space that encompasses
+several energy levels per quantum dot, to ensure accurate modeling of the
+interactions. Since QD Simulator is performing a full quantum simulation,
+users
+have access to the fully evolved state vector (following truncation to the
+computational subspace) at the end of a simulation. As evolution is happening
+in the lab frame, the probability amplitude results returned from
+<code class="docutils literal notranslate"><span class="pre">FullStateSimulator::getAmplitudes</span></code> will include the extra
+<span class="math notranslate nohighlight">\(Z\)</span>-phases that were accumulated due to natural precession, and the
+extra phases will be dependent on the resonance frequencies as well as the full
+evolution history during algorithm execution. Since this detailed history is
+unavailable to users, the use of the latter function for full state
+characterization is discouraged.</p>
+<p>This further highlights how closely the simulations with QD Simulator reflect actual
+quantum dot qubits. With physical qubits it is impossible to obtain actual
+probability amplitudes after evolution. Just as with physical qubits,
+techniques such as quantum state tomography <span id="id17">[<a class="reference internal" href="../citations.html#id20" title="Matteo Paris and Jaroslav Řeháček. Quantum state estimation. Volume 649. Springer Science &amp; Business Media, 2004. doi:10.1007/b98673.">PR04</a>]</span> are
+required to reconstruct the full state when using QD Simulator.</p>
+</section>
+<section id="using-quantum-dot-simulator-in-a-program">
+<h2><a class="toc-backref" href="#id21" role="doc-backlink">Using Quantum Dot Simulator in a Program</a><a class="headerlink" href="#using-quantum-dot-simulator-in-a-program" title="Link to this heading">¶</a></h2>
+<p>To enable QD Simulator, a <code class="docutils literal notranslate"><span class="pre">DeviceConfig</span></code> should be declared with <code class="docutils literal notranslate"><span class="pre">&quot;QD_SIM&quot;</span></code>.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">iqsdk</span><span class="o">::</span><span class="n">DeviceConfig</span><span class="w"> </span><span class="n">qd_sim_config</span><span class="p">(</span><span class="s">&quot;QD_SIM&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Then, create a <code class="docutils literal notranslate"><span class="pre">FullStateSimulator</span></code> with the QD Simulator <code class="docutils literal notranslate"><span class="pre">DeviceConfig</span></code>:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">iqsdk</span><span class="o">::</span><span class="n">FullStateSimulator</span><span class="w"> </span><span class="nf">qd_sim_device</span><span class="p">(</span><span class="n">qd_sim_config</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Once the simulator is configured, then the <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions
+can be called to perform simulations on the QD Simulator.</p>
+</section>
+<section id="important-points-on-quantum-dot-simulator">
+<span id="qdsim-imp"></span><h2><a class="toc-backref" href="#id22" role="doc-backlink">Important Points on Quantum Dot Simulator</a><a class="headerlink" href="#important-points-on-quantum-dot-simulator" title="Link to this heading">¶</a></h2>
+<p>Because the QD Simulator behaves more like realistic hardware, it
+carries a few limitations on the kinds of <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions that can
+be used in conjunction with it. Specifically, it expects that each
+<code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> in <code class="docutils literal notranslate"><span class="pre">main()</span></code> will consist of a workload where</p>
+<ul class="simple">
+<li><p>All the qubits start in the <span class="math notranslate nohighlight">\(\ket{0}\)</span> state</p></li>
+<li><p>A sequence of 1-qubit and 2-qubit operations are applied</p></li>
+<li><p>The final probabilities or amplitudes for each basis state are retrieved.</p></li>
+</ul>
+<p>There is no continuity between <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions
+called within <code class="docutils literal notranslate"><span class="pre">main()</span></code>, because each time a <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> is called within
+<code class="docutils literal notranslate"><span class="pre">main()</span></code>, the QD Simulator history is reset and all qubits will start in the
+<span class="math notranslate nohighlight">\(\ket{0}\)</span> state.</p>
+<p>If sub <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions are to be used, they must be specified
+outside of <code class="docutils literal notranslate"><span class="pre">main()</span></code> and combined as desired within a single
+<code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code>, and then called in <code class="docutils literal notranslate"><span class="pre">main()</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">MeasZ</span></code> operation is not advised to be used with the QD Simulator.
+This operation is designed to collapse the target qubit, and to store the
+result in a <code class="docutils literal notranslate"><span class="pre">cbit</span></code>. Using this operation will set the cbit according to the
+probability distribution associated with the quantum state at the end of the
+quantum_kernel, and will not collapse the state. In addition, <code class="docutils literal notranslate"><span class="pre">MeasX</span></code> and
+<code class="docutils literal notranslate"><span class="pre">MeasY</span></code> will likely give incorrect results.</p>
+<p>Prepare operations (e.g. <code class="docutils literal notranslate"><span class="pre">PrepZ</span></code>) should be reserved for use either at the
+beginning of a <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code>, or not used at all. Using <code class="docutils literal notranslate"><span class="pre">PrepZ</span></code> should
+provide benefits with compiler optimizations when using the <code class="docutils literal notranslate"><span class="pre">-O1</span></code> flag. Not
+using <code class="docutils literal notranslate"><span class="pre">PrepZ</span></code> at the beginning will not impact the QD Simulator,
+since the qubits will always be reset to <span class="math notranslate nohighlight">\(\ket{0}\)</span> when starting a simulation.
+However, using <code class="docutils literal notranslate"><span class="pre">PrepZ</span></code> or <code class="docutils literal notranslate"><span class="pre">MeasZ</span></code> in the middle of simulating a <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> on
+QD Simulator will result in unexpected behavior.</p>
+<p>Note that <span class="math notranslate nohighlight">\(Z`\)</span> rotations are currently not natively enabled for the hardware in
+simulation. Hence a user wishing to use <span class="math notranslate nohighlight">\(RZ(\theta)\)</span> can expect the
+compiler to implement it in one of two ways:</p>
+<ul class="simple">
+<li><p>If using compiler optimization (<code class="docutils literal notranslate"><span class="pre">-O1</span></code>), then the compiler will absorb all RZ
+operations into other single-qubit operations.</p></li>
+<li><p>If not using compiler optimization (<code class="docutils literal notranslate"><span class="pre">-O0</span></code>), the RZ operation (or related
+operations such as S, T, etc.) will be explicitly decomposed into RXY
+operations as follows:</p></li>
+</ul>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">quantum_kernel</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">rzDecomp</span><span class="w"> </span><span class="p">(</span><span class="n">qbit</span><span class="w"> </span><span class="n">qb</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="n">angle</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">RXY</span><span class="p">(</span><span class="n">qb</span><span class="p">,</span><span class="w"> </span><span class="n">M_PI</span><span class="p">,</span><span class="w"> </span><span class="mf">0.5</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">M_PI</span><span class="p">);</span>
+<span class="w">  </span><span class="n">RXY</span><span class="p">(</span><span class="n">qb</span><span class="p">,</span><span class="w"> </span><span class="n">M_PI</span><span class="p">,</span><span class="w"> </span><span class="mf">0.5</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">angle</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">0.5</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">M_PI</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<section id="tip-for-faster-simulations">
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">Tip for Faster Simulations</a><a class="headerlink" href="#tip-for-faster-simulations" title="Link to this heading">¶</a></h3>
+<p>Avoid all operations on qubits that have no gates applied. Any operations,
+including prepare (<code class="docutils literal notranslate"><span class="pre">PrepZ</span></code>), applied to a qubit causes it to be simulated.
+This means that even if a qubit only has <code class="docutils literal notranslate"><span class="pre">PrepZ</span></code> &amp; <code class="docutils literal notranslate"><span class="pre">MeasZ</span></code> applied to it,
+it will still be simulated which adds overhead and increases runtime.</p>
+</section>
+</section>
+<section id="compilation-with-quantum-dot-simulator-as-the-computing-backend">
+<h2><a class="toc-backref" href="#id24" role="doc-backlink">Compilation with Quantum Dot Simulator as the Computing Backend</a><a class="headerlink" href="#compilation-with-quantum-dot-simulator-as-the-computing-backend" title="Link to this heading">¶</a></h2>
+<p>To enable QD Simulator, a platform configuration file that describes the
+configuration of quantum operations and the connectivity of the qubits must
+be given to the compiler. Users also need to specify flags and arguments for
+placement and scheduling. The following example assumes
+<a class="reference internal" href="faq.html#path-spec"><span class="std std-ref">the SDK location</span></a> has already been added to the shell path,</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>intel-quantum-compiler<span class="w"> </span>-c<span class="w"> </span>/&lt;path<span class="w"> </span>to<span class="w"> </span>config<span class="w"> </span>file&gt;/intel-quantum-sdk-QDSIM.json<span class="w"> </span>-p<span class="w"> </span>trivial<span class="w"> </span>-S<span class="w"> </span>greedy<span class="w"> </span>qd_GHZ.cpp
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Intel® Quantum SDK API</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Developers Guide and Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="attributions.html">How to Cite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="intro_to_QC.html">Introduction to Quantum Computing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html">Using the Intel® Quantum SDK</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="backends.html">Backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced.html">Advanced Topics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="support.html">Support and Bug Reporting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../fleq/index.html">FLEQ Guide and Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../citations.html">Citations</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Developers Guide and Reference</a><ul>
+  <li><a href="backends.html">Backends</a><ul>
+      <li>Previous: <a href="iqs.html" title="previous chapter">Intel® Quantum Simulator Backend</a></li>
+      <li>Next: <a href="clifford.html" title="next chapter">Clifford Simulator Backend</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024 Intel Corporation. All Rights Reserved.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/dgr/qdsim.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

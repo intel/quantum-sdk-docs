@@ -1,0 +1,186 @@
+.. _iqs_backend:
+
+|Intel| Quantum Simulator Backend
+=================================
+
+.. contents::
+   :local:
+   :depth: 3
+
+|Intel| Quantum Simulator (IQS) is a full-state simulator
+working at the qubit level, abstracting the physics of the specific
+implementaion. It is available as a standalone open-source project,
+but it also comes fully integrated as one of the backends of the
+|IQSDK| :cite:p:`KWPH22`. IQS is designed to take full
+advantage of High Performance Computing (HPC) infrastructure and
+allows both multi-thread (shared memory, using OpenMP) and
+multi-process parallelization (distributed memory, using MPI)
+:cite:p:`GHBS20`.
+
+The API has already being described in the context of full-state
+simulators (see :ref:`full_state`). Here we focus on the
+possibility of adding a customizable noise model in the simulation.
+The programmer does not need to be familiar with IQS, and no IQS code
+or APIs need to be used.
+
+.. _customizable-noise-modeling:
+
+Customizable noise modeling
+---------------------------
+
+The user can customize the action of every quantum operation
+within the template provided below by defining appropriate functions.
+The action of each operation is divided in three parts:
+
+* *Pre-operation:* Apply one or more of the following phenomenological
+  noise channels:
+
+  * Dephasing channel
+  * Depolarizing channel
+  * Amplitude damping
+  * Bitflip channel
+
+  Each effect is characterized by an intensity parameter.
+
+* *Operation itself:* The choice here is whether to apply the ideal
+  operation or a user-provided process matrix (also known as the :math:`\chi`
+  matrix). In the latter case, the user can include all noise effects
+  directly in the process matrix, and thus avoid pre- or post-operation
+  actions. However, we find it convenient to provide the pre- and post-operation
+  templates to facilitate writing standard noise models quickly.
+
+* *Post-operation:* Similar to the pre-operation case, the user can apply
+  one or more of the following phenomenological noise models:
+
+  * Dephasing channel
+  * Depolarizing channel
+  * Amplitude damping
+  * Bitflip channel
+
+  Each effect is characterized by an intensity parameter.
+
+.. _definition operation:
+
+Custom operation definition
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The definition of a custom operation is provided by means of objects
+of type ``iqsdk::IqsCustomOp``, which can be initialized as follows:
+
+.. code-block:: c++
+
+   IqsCustomOp op = {pre_dephasing, pre_depolarizing, pre_amplitude_damping, pre_bitflip,
+                    process_matrix, label,
+                    post_dephasing, post_depolarizing, post_amplitude_damping, post_bitflip};
+
+where:
+
+* ``pre_dephasing, pre_depolarizing, pre_amplitude_damping, pre_bitflip``
+  are scalar values representing the intensity of pre-operations.
+
+* ``process_matrix`` is a ``std::vector<std::complex<double>>`` in row-major format.
+  When the operation is ideal, one can simply use an empty vector as ``process_matrix``.
+
+* ``label`` is a string used as unique tag for the process matrix.
+  If multiple operations use the same process matrix (for example, the CZ gate
+  on different pairs of simulated physical qubits), assigning the same label reduces
+  the memory and computation by using a single process matrix.
+
+* ``post_dephasing, post_depolarizing, post_amplitude_damping, post_bitflip``
+  are scalar values representing the intensity of post-operations.
+
+If the complete operation is noiseless, one can simply use the global object:
+
+.. code-block:: c++
+
+   iqsdk::k_iqs_ideal_op = {0, 0, 0, 0, {}, "ideal", 0, 0, 0, 0}
+
+already defined in the header ``quantum_full_state_simulator_backend.h``.
+
+
+.. _specification operation:
+
+Custom operation specification
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+While the subsection above explained how to define a single custom operation,
+we still need to specify the behavior of a custom action. For example, one
+may want to return different ``IqsCustomOp`` objects for the same gate type
+depending on the simulated physical qubit as a way of having the noise
+reflect that of a realistic, inhomogeneous device.
+
+The user needs to write a function for every quantum operation returning the
+appropriate ``IqsCustomOp`` object for the given parameters of the quantum
+operation. For example, one may want to use a simplified noise model for the
+one-qubit gates by expressing them as ideal gates followed by depolarization.
+At the same time, they may want to use a process matrix describing the
+action of the two-qubit CZ gates. One may even use different process matrices
+depending on the qubits involved in the gate.
+
+In a simple example, a custom CPhase operation with a 10% chance of a dephasing
+error prior to the gate executing would be defined as:
+
+.. code-block:: c++
+
+   iqsdk::IqsCustomOp CustomCPhaseRot(unsigned q1, unsigned q2, double g) {
+     return {0.1, 0, 0, 0, {}, "cphase_dephasing", 0, 0, 0, 0};
+   }
+
+
+Using Custom IQS Noise Models in a Program
+-------------------------------------------------------
+
+To enable the IQS with a customizable noise model,
+an ``IqsConfig`` should be declared with ``"custom"``.
+
+.. code-block:: c++
+
+   iqsdk::IqsConfig custom_iqs_config(N, "custom");
+
+where ``N`` is the number of qubits.
+Then, associate the desired functions to the customizable actions:
+
+.. code-block:: c++
+
+   custom_iqs_config.PrepZ = CustomPrepZ;
+   custom_iqs_config.RotationXY = CustomRotXY;
+   custom_iqs_config.CPhaseRotation = CustomCPhaseRot;
+
+Here, ``custom_iqs_config.<name>`` are set to user-defined functions with
+the following signatures:
+
+.. code-block:: c++
+
+   iqsdk::IqsCustomOp PrepZ(unsigned qubit);
+   iqsdk::IqsCustomOp MeasZ(unsigned qubit);
+   iqsdk::IqsCustomOp RotationXY(unsigned qubit, double phi, double gamma);
+   iqsdk::IqsCustomOp RotationZ(unsigned qubit, double gamma);
+   iqsdk::IqsCustomOp ISwapRotation(unsigned qubit_1, unsigned qubit_2, double gamma);
+   iqsdk::IqsCustomOp CPhaseRotation(unsigned qubit_1, unsigned qubit_2, double gamma);
+
+Not all of the functions need to be defined.  If they are not defined, they will default
+to the ideal operation. Since the customizable noise model is compatible with full-state
+simulators, the IqsConfig is passed to an instantiation of a full-state simulator.
+
+.. code-block:: c++
+
+   iqsdk::FullStateSimulator custom_iqs_device(custom_iqs_config);
+
+   if (iqsdk::QRT_ERROR_SUCCESS != custom_iqs_device.ready()) return 1;
+
+A complete code example can be found in the ``custom_backend.cpp`` sample described
+in :ref:`samples`.
+
+.. _iqs-sim-noisy-sim-considerations:
+
+Important Points on Performing Noisy Simulations with IQS
+---------------------------------------------------------
+
+The |IQSDK| allows noisy simulations of qubits with the |Intel| Quantum Simulator as the backend.
+Noise is incorporated during a simulation via stochastic injection of noise based on the specified noise intensity parameter.
+Thus, it is necessary to aggregate results from multiple simulations to accurately simulate a noisy qubit system.
+Given that the stochastic nature is realized via the initial seed, it is imperative that the user instantiates the backend
+with a different seed each time the same quantum circuit is run during sample collection. By processing the resulting samples, the
+probabilities from noisy simulations can be reconstructed. This sampling process can be made efficient by using the
+asynchronous mode of simulations, whereby multiple simulator backends initialized with different seeds are used to
+simultaneously perform simulations depending on the available memory and processing capability.

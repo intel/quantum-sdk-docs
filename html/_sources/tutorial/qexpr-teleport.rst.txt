@@ -1,0 +1,410 @@
+.. _teleportation_tutorial_1q:
+
+Quantum Teleportation with FLEQ
+###############################
+
+This tutorial introduces the main concepts of FLEQ using quantum teleportation.
+Quantum teleportation :cite:p:`NiCh10` allows one actor,
+Alice, to send quantum information to another actor, Bob, in the form of a qubit
+state. The protocol proceeds as follows:
+
+1. Alice and Bob each start with one half of a Bell pair in the state
+   :math:`\frac{1}{\sqrt{2}}(\ket{00} + \ket{11})`.
+2. Alice prepares her state
+   :math:`\ket{\varphi} = \alpha \ket{0} + \beta \ket{1}`,
+   resulting in the three-qubit system
+   :math:`\ket{\varphi} \otimes \frac{1}{\sqrt{2}}(\ket{00} + \ket{11})`.
+3. Alice entangles her state with her half of the Bell pair and measures both
+   qubits, producing bits :math:`x` and :math:`y`, and leaving Bob's half of the
+   Bell pair in one of the following four states:
+
+   .. list-table:: Bob's state after Alice's local measurement
+        :widths: 10 10 25
+        :header-rows: 1
+
+        * - :math:`x`
+          - :math:`y`
+          - State
+        * - :math:`0`
+          - :math:`0`
+          - :math:`\alpha \ket{0} + \beta\ket{1}`
+        * - :math:`0`
+          - :math:`1`
+          - :math:`\alpha \ket{0} - \beta\ket{1}`
+        * - :math:`1`
+          - :math:`0`
+          - :math:`\alpha \ket{1} + \beta\ket{0}`
+        * - :math:`1`
+          - :math:`1`
+          - :math:`\alpha \ket{1} - \beta\ket{0}`
+
+4. Finally, Alice sends the classical bits :math:`x` and :math:`y` to Bob, who
+   uses that information to correct his state to Alice's original
+   :math:`\ket{\varphi} = \alpha \ket{0} + \beta \ket{1}`.
+
+One-qubit teleportation with quantum kernel expressions
+********************************************************
+
+We start by including the necessary header files: ``quintrinsics.h`` for use of
+the |Intel| Quantum SDK, ``quantum_full_state_simulator_backend.h`` for a
+simulator backend, and ``qexpr.h`` for quantum kernel expressions. In addition,
+we include several headers from the C++ standard library that will be useful.
+
+.. literalinclude:: code_samples/qexpr_teleport.cpp
+   :language: c++
+   :lines: 43-51
+   :linenos:
+   :caption: Header files.
+   :name: teleport_headers
+
+To prepare a Bell state using quantum kernel expressions, we write a function
+that takes as input two qubits, and returns the quantum kernel expression that
+prepares those qubits in a Bell state.
+
+.. literalinclude:: code_samples/qexpr_teleport.cpp
+   :language: c++
+   :lines: 59-64
+   :linenos:
+   :caption: Quantum kernel expression implementing the Bell state :math:`\frac{1}{\sqrt{2}} (\ket{00} + \ket{11})`
+   :name: teleport_bell00
+
+
+Notice that this function *returns* an expression representing a quantum
+program; unlike the non-FLEQ ``quantum_kernel`` functions in the rest of the
+SDK, FLEQ does not *call* quantum gates. Instead, it focuses on constructing a
+quantum kernel *expression* or ``QExpr``.
+
+In a similar vein, Alice can prepare her state :math:`\varphi` by calling a ``QExpr``-returning function
+``prepPhi()`` on a qubit ``q``, which prepares ``q`` by performing an ``X``
+rotation around a randomly generated angle. The ``PROTECT`` modifier prevents
+inlining, and must be included whenever a ``QExpr`` function uses local variables.
+
+.. literalinclude:: code_samples/qexpr_teleport.cpp
+   :language: c++
+   :lines: 82-93
+   :linenos:
+   :caption: Prepare Alice's state :math:`\ket{\varphi}`.
+   :name: teleport_prepPhi
+
+Next, we implement Alice's half of the teleportation protocol,
+where she entangles her prepared qubit with her half of the Bell pair.
+She writes the results to two boolean references ``x`` and ``y``.
+
+
+.. literalinclude:: code_samples/qexpr_teleport.cpp
+   :language: c++
+   :lines: 68-73
+   :linenos:
+   :caption: Entangle ``q`` and ``a`` and measure both, writing the results to ``x`` and ``y`` respectively.
+   :name: teleport_alice
+
+Finally, we implement Bob's piece of the protocol, which uses ``x`` and ``y`` to
+apply corrections to his qubit, ``b``.
+
+.. literalinclude:: code_samples/qexpr_teleport.cpp
+   :language: c++
+   :lines: 76-79
+   :linenos:
+   :caption: Use ``x`` and ``y`` to apply corrections to Bob's qubit ``b``.
+   :name: teleport_bob
+
+Unlike the other ``QExpr`` functions up until now, ``bob()`` does not
+correspond to a straightforward quantum circuit. Instead, it uses the classical
+conditional blocks ``cIf`` to change which quantum kernel expression will be
+applied based on the runtime values of ``x`` and ``y``. In particular, if ``y``
+and ``x`` are both ``true`` at runtime, evaluating ``bob()`` will invoke the
+quantum operation ``X(b)`` followed by the operation ``Z(b)``. On the other
+hand, if ``y`` is ``false`` but ``x`` is ``true``, evaluating ``bob()`` will
+only invoke ``Z(b)``. See the |FLEQ:Branching| for more details on classical
+conditionals.
+
+To put all of these components together, we will implement 1-qubit teleportation
+in a top-level classical function, ``teleport1()``.
+
+.. literalinclude:: code_samples/qexpr_teleport.cpp
+   :language: c++
+   :lines: 110-143
+   :linenos:
+   :caption: Implement the 1-qubit teleportation protocol
+   :name: teleport1
+
+The function takes as input a full state simulator device, which we assume has
+been properly initialized. Lines 3-5 of
+``teleport1()`` declare three local qubits: ``q`` is Alice's state; ``a`` is
+Alice's half of the Bell pair; and ``b`` is Bob's half of the Bell pair. The
+variables ``a`` and ``b`` are initialized in line 8 by evaluating the quantum
+kernel expression ``bell00`` with the ``eval_hold()`` function.
+
+Line 11 prepares Alice's qubit ``q`` in state :math:`\ket{\varphi}` by
+evaluating the quantum kernel expression ``prepPhi(q)``. Because this state is
+different every iteration, line 15 calls ``getProbabilities()`` to record what
+:math:`\ket{\varphi}` is before teleportation. The function
+``getProbabilities()`` produces a data structure that maps qubit states to the
+probability associated with that state at the current point in the computation.
+The argument to ``getProbabilities()`` specifies the subset and order of qubits
+whose probabilities should be considered. In this case, we are asking for only
+the qubit ``q``. See the |DGR:MeasFullState| for more details.
+
+To achieve quantum teleportation, in line 21, Alice measures her qubits to
+boolean values ``x`` and ``y`` by evaluating the ``QExpr`` function ``alice()``.
+On line 24, Bob uses these values to correct his state ``b`` by evaluating
+``bob()``. Finally, line 28 invokes ``getProbabilities()`` once more to
+determine the state of ``b`` after teleportation, and prints out both
+probability distributions to compare them for equality.
+
+The output of running ``teleport1()`` is the following:
+
+.. code-block:: console
+   :linenos:
+
+    $ ./qexpr_teleport
+      Using angle 4.75947
+      Bob received 1 and 0.
+      Before teleportation, qubit q has distribution:
+      Printing probability register of size 2
+      |0⟩   : 0.5236                        |1⟩   : 0.4764
+
+      After teleportation, qubit b has distribution:
+      Printing probability register of size 2
+      |0⟩   : 0.5235                        |1⟩   : 0.4765
+
+Line 2 indicates that Alice's state
+:math:`\ket{\varphi}` was prepared with angle 4.75947. Line 3 indicates that
+Alice measured bits ``x`` and ``y`` as 1 and 0, respectively. Finally, lines
+4-10 show that Bob's state after teleportation matches Alice's state before
+teleportation (up to a rounding error).
+
+A single quantum kernel expression
+**********************************
+
+The function ``teleport1()`` above contains multiple evaluation calls to
+``eval_hold()``; it itself is a classical function that interacts with the
+quantum runtime. If a user does not need to report the output of the first
+state, can they implement teleportation as a single ``QExpr`` function?
+
+An initial **incorrect** attempt in doing this is to write a ``QExpr`` function that simply
+joins the three modular components of the teleportation protocol:
+
+.. literalinclude:: code_samples/qexpr_teleport.cpp
+   :language: c++
+   :lines: 159-165
+   :linenos:
+   :caption: Incorrect attempt to implement teleportation as a single quantum kernel expression.
+   :name: teleport1_bad
+
+To use this function, Alice prepares her qubit ``q`` in state
+:math:`\ket{\varphi}` and combines that with the teleportation procedure. Below,
+Alice prepares the state :math:`\ket{1}`.
+
+.. literalinclude:: code_samples/qexpr_teleport.cpp
+   :language: c++
+   :lines: 180-194
+   :linenos:
+   :caption: Incorrect attempt to implement teleportation as a single quantum kernel expression.
+   :name: teleport1_bad_eval
+
+When we try to run this algorithm, half the time we will observe ``b`` in the
+state :math:`\ket{0}` and half the time we will observe it in the state
+:math:`\ket{1}`. This is an indication that the corrections in Bob's part of
+the protocol are not being applied correctly. Indeed, if we were to print out
+the values of ``x`` and ``y`` before Bob performs his corrections, we would see
+that the values of ``x`` and ``y`` are always 0.
+
+The reason for this is that the measurement in Alice's protocol (inside the
+``QExpr`` function ``alice()``) is occurring within the same Quantum Basic Block
+(QBB) as the conditional in ``bob()``. However, measurement results are not
+written to classical variables ``x`` and ``y`` until the end of a QBB. Thus, the
+measurement results do not propagate to ``x`` and ``y`` before
+Bob tries to use them. See |FLEQ:Bind| for more details.
+
+The solution is to insert a barrier between Alice's protocol and Bob's protocol
+to ensure they happen within separate QBBs. This can be achieved via the
+``bind`` function, an analogue of the usual ``join`` function that combines two
+quantum kernel expressions. Where ``join`` takes two quantum kernel expressions
+and combines them sequentially in the same quantum basic block, ``bind``
+produces separate QBBs, executing one after the other. Analogous to the notation
+``e1 + e2`` for joining quantum kernel expressions in sequence, users can write
+``e1 << e2`` for binding quantum kernel expressions in sequence.
+See |FLEQ:Bind| for more details.
+
+In this case, the ``QExpr`` teleportation function ``teleport1_join()`` should be replaced by a
+version that uses ``<<`` in place of ``+``.
+
+
+.. literalinclude:: code_samples/qexpr_teleport.cpp
+   :language: c++
+   :lines: 206-211
+   :linenos:
+   :caption: A quantum kernel function that implements quantum teleportation using ``bind()``.
+   :name: teleport1_bind
+
+We can now invoke this algorithm by evaluating ``teleport1_bind()`` after Alice
+has prepared her qubit in state :math:`\ket{1}`. In this case we find that no
+matter how many times we run the algorithm, Bob always results in a qubit in
+state :math:`\ket{1}`, as expected.
+
+Multi-qubit teleportation
+*************************
+
+In this section we will extend single-qubit quantum teleportation to a protocol that teleports
+:math:`N` qubits for an arbitrary :math:`N`. The protocol
+requires :math:`N` pairs of qubits in a Bell state and performs the single-qubit
+teleportation sequence for each qubit.
+
+A first attempt at multi-qubit teleportation would be just to call the
+``teleport1()`` function :math:`N` times in sequence. However, with this
+approach Alice would prepare :math:`N` single-qubit states, and it would not allow for an
+entangled state to be teleported.
+
+A next attempt would be for Alice to prepare her qubit state and then evaluate
+``teleport1_bind()`` :math:`N` times on each successive qubit. This can be
+achieved via a recursive function that returns a quantum kernel expression (see
+|FLEQ:Recursion|).
+
+.. literalinclude:: code_samples/qexpr_teleport.cpp
+   :language: c++
+   :lines: 244-252
+   :linenos:
+   :caption: A function that returns a recursive quantum kernel expression
+             applying the quantum teleportation protocol to each triple of
+             qubits in ``qs``, ``as``, and ``bs``.
+   :name: teleport_sequential
+
+The recursive function ``teleport_sequential`` uses a classical conditional
+``cIf`` to distinguish between a base case (when the ``QList`` ``qs`` is empty)
+and a recursive case (when ``qs`` is non-empty). It assumes that all three
+``QList`` inputs have the same length. When they are all empty (have size 0),
+teleportation should do nothing and so returns the ``qexpr::identity()`` quantum
+kernel expression. In the recursive case, we will apply single-qubit
+teleportation (in the form of the ``teleport1_bind()`` function) on ``qs[0]``,
+``as[0]``, and ``bs[0]`` and then recursively call ``teleport_sequential`` on
+the tails of the three qubit lists (``qs+1``, ``as+1``, and ``bs+1``).
+
+For example, if the length of the three qubit lists is 2, then
+``teleport_sequential(qs, as, bs)`` will be unrolled to the following sequence:
+
+.. code-block::
+
+  teleport1_bind(qs[0], as[0], bs[0]) + teleport_sequential(qs+1, as+1, bs+1)
+
+Then, because ``(qs+1).size() == 1``, the call to ``teleport_sequential()`` will
+be unrolled again:
+
+.. code-block::
+
+  teleport1_bind(qs[0], as[0], bs[0])
+    + teleport1_bind((qs+1)[0], (as+1)[0], (bs+1)[0])
+    + teleport_sequential(qs+2, as+2, bs+2)
+
+where ``(qs+1)[0]`` is the same as ``qs[1]``. Finally, because
+``(qs+2).size() == 0``, the final call to ``teleport_sequential()`` will
+unroll to the identity. Thus all together the call
+``teleport_sequential(qs,as,bs)`` becomes
+
+.. code-block::
+
+  teleport1_bind(qs[0], as[0], bs[0]) + teleport1_bind(qs[1], as[1], bs[1])
+
+Putting this all together, the top-level evaluation call would prepare Alice's
+state :math:`\ket{\phi}` and call ``teleport_sequential``. Here, we will prepare
+Alice's state to be the GHZ state
+:math:`\frac{1}{\sqrt{2}}(\ket{0\cdots0} + \ket{1\cdots 1})` as illustrated in the
+example ``qexpr_ghz.cpp`` (see |DGR:Samples|).
+
+
+.. literalinclude:: code_samples/qexpr_teleport.cpp
+   :language: c++
+   :lines: 258-264
+   :linenos:
+   :caption: An evaluation call of ``teleport_sequential`` after preparing :math:`\ket{\varphi}` as a GHZ state.
+   :name: teleport_sequential_eval
+
+Minimizing barriers and ``map``
+*************************************
+
+Because each call to ``teleport1_bind`` has a barrier in the form of a ``bind``,
+``teleport_parallel(qs, as, bs)`` will result in more than :math:`n` quantum basic blocks
+(QBBs) (see |FLEQ:Bind|). While such barriers are logically valid, they
+prevent the compiler from optimizing across boundaries, which can make compilation
+redundant and expensive. It can also result in less-ideal placements (which are
+determined for each QBB individually) and scheduling. Logically, the
+:math:`n`-qubit teleportation protocol really should have three separate components:
+
+1. First, Alice and Bob prepare their joint Bell states.
+2. Second, Alice prepares her state :math:`\ket{\varphi}` and measures her qubits.
+3. Finally, Bob receives Alice's measurements and performs his own corrections.
+
+These three states could be achieved using their own recursive functions over
+the qubit lists, as in ``teleport_sequential()``. But each of these three cases
+has a similar structure that we can exploit. Consider:
+
+1. Preparing the joint Bell states takes as input two ``QList`` values ``as``
+   and ``bs`` and maps ``bell00()`` over each pair ``as[i]`` and ``bs[i]``.
+
+2. Alice's preparations involve first preparing the state :math:`\ket{\varphi}`
+   and then mapping the function ``QExpr alice(qbit& q, qbit& a, bool& x, bool& y)``
+   over ``qs[i]``,
+   ``as[i]``, and two boolean arrays ``xs[i]`` and ``ys[i]``.
+
+3. Bob's corrections involve mapping the function
+   ``QExpr bob(qbit& b, bool x, bool y)`` over ``bs[i]``, ``xs[i]``, and ``ys[i]``.
+
+Each of these three cases (as well as ``teleport_sequential()`` itself) involves
+mapping a single-qubit ``QExpr`` function over one or more ``QList`` values or
+arrays. In fact, this is such a commonly occurring pattern that FLEQ provides a
+higher-order functional utility called ``qexpr::map()`` in the header file
+``qexpr_utils.h`` (see |FLEQ:HigherOrder|).
+
+The first argument to ``qexpr::map(f, qs, ...)`` is a function pointer ``f``,
+which takes at least one qubit argument and returns a ``QExpr``. The next
+argument is a ``QList`` ``qs``, and the remaining arguments are
+either additional ``QList`` variables, array variables, or non-arrays, each of
+which is passed as an additional argument to ``f``.
+
+The ``qexpr::map()`` utility is best understood via example.
+
+1. ``qexpr::map(bell00, as, bs)`` maps ``bell00()`` over each pair of qubits in
+   the ``QList`` values ``as`` and ``bs``.
+
+2. ``qexpr::map(alice, qs, as, xs, ys)`` maps ``alice()`` over each tuple
+   ``(qs[i], as[i], xs[i], ys[i])``.
+
+3. ``qexpr::map(bob, bs, xs, ys)`` maps ``bob()`` over each tuple
+   ``(bs[i], xs[i], ys[i])``.
+
+Thus, we can lift each component of quantum teleportation to :math:`n` qubits
+easily, without even writing any additional ``QExpr`` functions, and put them
+together smoothly as follows:
+
+.. literalinclude:: code_samples/qexpr_teleport.cpp
+   :language: c++
+   :lines: 313-321
+   :linenos:
+   :caption: A version of :math:`n`-qubit teleportation with only two total barriers.
+   :name: teleport_parallel
+
+
+To test our implementation, we will have Alice prepare a GHZ state on ``qs`` and
+then analyze Bob's qubits after teleportation. If teleportation succeeds,
+Bob's qubits will then be in the original GHZ state.
+
+
+.. literalinclude:: code_samples/qexpr_teleport.cpp
+   :language: c++
+   :lines: 325-343
+   :linenos:
+   :caption: Evaluating :math:`n`-qubit teleportation via ``teleport_parallel`` on the |Intel| Quantum Simulator.
+   :name: teleport_parallel_eval
+
+The result of this evaluation call is, as expected:
+
+
+.. code-block:: console
+   :linenos:
+
+    $ ./qexpr_teleport
+      Expecting GHZ state |0...0> + |1...1>
+      Qubits bs after teleportation:
+      Printing probability map of size 2
+      |000⟩ : 0.5                           |111⟩ : 0.5
+

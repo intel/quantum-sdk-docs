@@ -1,0 +1,191 @@
+
+.. _evaluation:
+
+Basics: evals, join, identity, and QExpr-returning functions
+************************************************************
+
+FLEQ provides three namespaces, ``qexpr``, ``qlist`` and ``datalist``, which are
+available in the header files ``qexpr.h``, ``qlist.h``, and
+``datalist.h``, respectively. The functions described below will be scoped by
+their appropriate namespace, where this scoping can be avoided using the typical
+C++ keywords ``using namespace <name>``.
+
+The simplest quantum kernel expressions are basic primitives
+representing single quantum gates.
+
+``QExpr qexpr::_<g>(Args... args)``
+
+  For each primitive gate ``<g>(Args...)`` in the |Intel| Quantum SDK (see |DGR|),
+  there is a corresponding primitive quantum kernel expression ``_<g>(Args...)``.
+  The arguments of ``_<g>`` are the same as those of ``<g>``.
+
+Other basic primitives include
+
+``QExpr qexpr::identity()``
+
+  An identity or no-op quantum kernel expression.
+
+``QExpr qexpr::global_phase(double angle)``
+
+  A quantum kernel expression that applies a global phase but otherwise has no
+  effect. The distinction between ``identity`` and ``global_phase`` is primarily
+  relevant to unitary control of a ``QExpr``; see :ref:`unitary-control`. The
+  ``angle`` argument to ``global_phase()`` can be dynamic--it need not be
+  resolvable at compile-time.
+
+Two quantum kernel expressions ``e1`` and ``e2`` can be combined together
+in several equivalent ways:
+
+``QExpr qexpr::join(QExpr e1, QExpr e2)``
+
+  Returns the sequential
+  composition of ``e1`` followed by ``e2``. In other words, when evaluated,
+  ``qexpr::join(e1,e2)`` will execute the logic associated with ``e1`` followed by
+  the logic associated with ``e2``.
+
+``e1 + e2``
+
+  Shorthand for ``qexpr::join(e1, e2)``.
+
+``e2 * e1``
+
+  Combines the quantum kernel expressions in *composition order*, meaning that
+  it evaluates its second argument first. Composition order is natural when
+  thinking in terms of matrix multiplication or function composition.
+  Equivalent to ``qexpr::join(e1,e2)``.
+
+The third core component of ``QExpr`` functionality are the evaluation functions
+introduced in :ref:`intro-evaluation`.
+
+``void qexpr::eval_hold(QExpr e)``
+
+  Executes the quantum instructions represented
+  by the quantum kernel expression ``e``. It guarantees that the quantum state
+  will be maintained after execution of the instructions.
+
+``void qexpr::eval_release(QExpr e)``
+
+  Executes the quantum instructions represented by ``e`` under the assumption that the quantum state need
+  not be preserved after execution. It is the direct analog to the ``release_quantum_state``
+  directive for ordinary ``quantum_kernel`` functions; see the |DGR| for details.
+
+When an evaluation function is called inside a classical function ``f()``, the compiler treats ``f()`` itself as a
+``quantum_kernel`` function.
+This helps lift some of the limitations placed on conventional quantum kernel
+functions. For one, multiple evaluation calls, or even a single evaluation call in the case of :ref:`branching` and :ref:`bind`, can result in multiple quantum basic blocks. In addition, local qubits, which can only be declared inside ``quantum_kernel`` functions, can now be declared in functions that make evaluation calls to quantum kernel expressions. See :ref:`local_qubits` for more details.
+
+A quantum kernel expression can be constructed inline
+inside an evaluation call, such as
+
+.. code-block:: C++
+
+  qexpr::eval_hold(qexpr::_PrepZ(q) + qexpr::_H(q));
+
+Alternatively, ordinary C++ functions can return a quantum kernel expression of type ``QExpr``, which can then be evaluated.
+
+.. code-block:: C++
+
+  QExpr prep_plus_qexpr(qbit& q) {
+      return qexpr::_PrepZ(q) + qexpr::_H(q);
+  }
+  int main() {
+    ...
+    qexpr::eval_hold(prep_plus_qexpr(q));
+    ...
+  }
+
+``QExpr``-returning functions do come with some limitations and special features:
+
+ * A function returning a ``QExpr`` must have a single return statement; this is enforced by
+   the FLEQ compilation stage of the |Intel| Quantum Compiler (IQC). If the user desires branching or conditional
+   ``QExpr`` returns, they should use the ``cIf`` functionality described in :ref:`branching`.
+
+ * Traditional C++ branching and looping is allowed under the same constraints as a
+   ``quantum_kernel`` function for classical data, but generally is not encouraged. Best
+   practice is to use ``cIf`` (:ref:`branching`) and recursion (:ref:`recursion`).
+   There are known cases where traditional branching and FLEQ are incompatible, in particular:
+
+    * FLEQ does not support loops that are bound by FLEQ functions such as the
+      size of a ``QList`` or ``DataList``. This is because classical loop
+      unrolling comes before FLEQ processing in compilation (see
+      :ref:`compilation-overview`). For example, the following function results
+      in a compiler error:
+
+      .. code-block:: C++
+
+        quantum_kernel void prepAll_qlist_BAD(qlist::QList qs) {
+          for (int i=0; i<qs.size(); i++) {
+            PrepZ(qs[i]);
+          }
+        }
+
+    * The loop above *can* be written using a global ``QList`` of a fixed size.
+      For example, the following function is acceptable:
+
+      .. code-block:: C++
+
+        const int N = 5;
+        qbit qs[N];
+
+        quantum_kernel void prepAll_qlist_global() {
+          for (int i=0; i<N; i++) {
+            PrepZ(qs[i]);
+          }
+        }
+
+    * Quantum kernel expressions and evaluation calls can be placed in a for-loop
+      like ``prepAll_qlist_global()``, but only inside functions annotated by the
+      ``quantum_kernel`` keyword. Ordinarily C++ functions that evaluate
+      quantum kernel expressions need not have the ``quantum_kernel`` keyword
+      explicitly.
+
+      .. code-block:: C++
+
+        const int N = 5;
+        qbit qs[N];
+
+        quantum_kernel void prepAll_qexpr_global_eval() {
+          for (int i=0; i<N; i++) {
+            qexpr::eval_hold(qexpr::_PrepZ(qs[i]));
+          }
+        }
+
+ * ``qbit`` arguments must be passed by reference (enforced by the FLEQ compilation
+   stage of IQC).
+
+ * FLEQ values of type ``QExpr``, ``QList``, and ``DataList`` should be passed
+   by value, as they are immutable functional data structures. This is not
+   strictly enforced by the compiler but can result in compilation failures.
+
+ * Data intended to be treated as an output of the ``QExpr`` function, such as ``cbit`` or ``bool``
+   values or arrays, should be returned through a reference argument (*return-by-reference*), as the
+   function must return a ``QExpr`` type.
+
+ * ``cbit`` variables and arrays populated by quantum measurements (i.e. via ``_MeasZ``) in a
+   ``QExpr`` are not written to until after the evaluation
+   call resolves, unless they come before a ``qexpr::fence`` or ``qexpr::bind`` statement; see :ref:`bind`. This
+   has implications for classical branching with ``QExpr``; see :ref:`branching` and :ref:`bind`.
+
+ * Consider a ``QExpr``-returning function ``foo`` that returns-by-reference
+   additional data, i.e. writes to some memory such as ``cbit``
+   measurement data. If a user intends for the returned
+   data to be read by another ``QExpr``-returning function ``bar`` in the same
+   evaluation or return statement, then (1) ``foo`` and ``bar`` must be separated by
+   a ``qexpr::bind`` statement (see :ref:`bind`); and (2) the data must be passed to
+   ``bar`` by reference. For example, the following is valid:
+
+    .. code-block:: C++
+
+        QExpr foo(cbit &write_to) { ... }
+        QExpr bar(cbit &read_from) { ... }
+
+        int main() {
+          ...
+          cbit data;
+          qexpr::eval_hold(foo(data) << bar(data));
+        }
+
+
+ * ``QExpr``-returning function pointers can be used both as traditional C++ function arguments
+   and template arguments to form higher-order ``QExpr`` transformations. The
+   ``qexpr::map`` utility function is one such example; see :ref:`higher-order`.

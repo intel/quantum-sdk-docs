@@ -1,0 +1,36 @@
+Output of the |IQSDK| Compiler
+------------------------------
+
+Three files are generated from the compilation stage and written to the
+working or user-specified output directory.
+These files are:
+
+``<algo-name>.ll``: Intermediate representation (IR) of source file.
+
+   This file shows the LLVM IR of both quantum and classical parts of the code
+   combined, with the ``quantum_kernels`` and operations represented as function
+   calls.
+
+``<algo-name>.qs``: Human-readable assembly file for |Intel| Quantum backend target.
+
+   This file shows the assembly for each ``quantum_kernel`` written by the user
+   and mapped to the quantum backend. Thus, it will reflect some of the quantum
+   target’s attributes, such as its native gate set, and limited connectivity
+   (in the form of additional swap gates).
+
+``<algo-name>``: Executable corresponding to ``<algo-name>``.
+
+   This is the binary and final result of the |IQSDK| compiler.
+
+The details in the ``.ll`` and ``.qs`` files can provide a better understanding of the
+program's low-level execution flow. When debugging or trying to understand the
+results of optimization, referring to both ``.ll`` and ``.qs`` can be informative. For
+example, in optimizing measurement operations, when the compiler can be sure
+that a given boolean or ``cbit`` measurement outcome is dependent on another outcome or set of
+outcomes, then that measurement outcome can ultimately be determined by the classical
+part of the IR (especially in conjunction with a call to
+``release_quantum_state()``) and the measurement that set it can be omitted.
+Similarly, the dynamic parameters passed to some quantum gates can sometimes be
+combined by the compiler, reducing the number of operations on dynamic variables.
+Inspecting the ``.qs`` file will reveal which measurements and operations will be
+executed.

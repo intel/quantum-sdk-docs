@@ -1,0 +1,222 @@
+.. _qdsim:
+
+Quantum Dot Simulator Backend
+=============================
+
+.. contents::
+   :local:
+   :depth: 3
+
+Quantum Dot Simulator (QD Simulator) is a simulator reproducing the physics of
+a Quantum Dot (QD) qubit chip
+in software. Simulation of quantum systems is a field of great
+importance :cite:p:`GeAN14`. In quantum computing, there are benefits in accurately
+simulating quantum systems for the purpose of evaluating their strengths and
+weaknesses for use as qubits. Simulations help drive design decisions on the
+critical characteristics for physical realizations :cite:p:`KPZC22`. Though there
+are many ways of performing quantum simulations, here we focus on
+Schrodinger evolution for simulating quantum dot qubits. This QD Simulator
+is used as the realistic qubit simulation backend of the |IQSDK| :cite:p:`KWPH22` :cite:p:`KPZC22`.
+
+Simulation of Qubits
+--------------------
+
+Qubits are quantum mechanical systems with two distinct states, typically
+labeled :math:`\ket{0}` and :math:`\ket{1}` :cite:p:`BaSR21`, :cite:p:`NiCh10`. The
+current backend for quantum dot qubits utilizes
+qubit states encoded in the spin degree of freedom of single electrons
+:cite:p:`ZKWL22`. These qubits are typically referred to as Loss-DiVincenzo qubits
+:cite:p:`LoDi98`. Abstract qubits are simple systems with only two isolated levels.
+However, practical quantum systems are never quite as simple, with careful
+consideration required for selection of a suitable system to form a
+qubit :cite:p:`DiVi00`. These requirements and the thought process behind the
+selection of some currently favored types of qubits were reviewed
+in :cite:p:`LJLN10`. One important fact common to all of these qubits is the
+presence of a characteristic resonance frequency or natural frequency. The
+frequency usually refers to the energy difference (expressed as a frequency)
+between the qubit levels (computational states) of the quantum system being
+considered for digital gate-based quantum computing. Resonance frequencies for
+most types of qubits are 1 GHz to 30 GHz, though there are exceptions with
+much higher or lower frequencies.
+
+When using the QD Simulator backend, the simulation goes
+through the qubit control processor, the control electronics, to the simulated
+quantum dot qubits.
+The qubit control processor takes the compiled instruction sequence and the
+platform configuration files to generate the corresponding micro-instructions
+for the control electronics. The control electronics generate the RF
+and DC pulses with the correct parameters to interact with the
+quantum dot qubit chip. All the control flow and operations are modeled in
+simulation.
+
+The primary supported gates are :math:`R_{xy}\left(\theta,\phi\right)`, referred to in code as ``RXY``:
+
+.. _rxy-matrix-representation:
+
+.. math::
+
+   R_{xy}\left( \theta, \phi \right) &= \cos\left(\frac{\theta}{2}\right)\hat{I}
+                                      -i\sin\left(\frac{\theta}{2}\right)
+                                      \left[\hat{X}\cos\phi + \hat{Y}\sin\phi\right] \\
+   &= \begin{bmatrix}
+      \cos\left(\frac{\theta}{2}\right) & -i\sin\left(\frac{\theta}{2}\right)\left[\cos\phi - i\sin\phi\right]\\
+      -i\sin\left(\frac{\theta}{2}\right)\left[\cos\phi + i\sin\phi\right]  & \cos\left(\frac{\theta}{2}\right) \\
+      \end{bmatrix}
+
+
+and the two-qubit operation :math:`CZ`:
+
+.. math::
+
+   \text{CZ} = \begin{bmatrix} 1 & 0 & 0 & 0 \\
+                               0 & 1 & 0 & 0 \\
+                               0 & 0 & 1 & 0 \\
+                               0 & 0 & 0 & -1\\
+               \end{bmatrix}
+
+The physical implementation of CZ involves the use of a
+"Decoupled CZ operation" :cite:p:`WaPK18`. All
+the other operations available via the |IQSDK| will be constructed using these
+operations.
+
+Rotating vs. Laboratory Frame
+-----------------------------
+
+Typically, if time dependence of the system can be set aside, simulation of
+quantum systems is convenient and fast. For certain quantum systems, it is
+possible to craft unitary transformations to analytically discard the overhead
+due to the resonance frequency of each qubit :cite:p:`Suri15` :cite:p:`Stec20` :cite:p:`NiCh10`.
+This is typically referred to as moving into the *rotating frame* of the qubit.
+This terminology is apt since the qubit is always precessing and incrementing its
+phase around the :math:`z`-axis at a rate given by its resonance frequency.
+A further analytical approximation, known as the *rotating wave approximation*
+:cite:p:`ZHSD20`, is usually required to make the time-dependence fully transparent.
+These transformations and approximations usually have the effect of drastically
+reducing the burden on simulation resources, since evolution will then happen
+at kHz or MHz scales instead of GHz scales.
+
+In the case of QD Simulator :cite:p:`KPZC22`, neither the rotating frame
+nor the rotating wave approximation is used. Currently, the
+evolution of the coupled multi-quantum-dot system (faithful to |Intel|'s quantum
+hardware) is performed in the *laboratory frame*. The laboratory frame is the
+original environment of the quantum system, where the natural frequencies of
+the qubits are fully visible. This also means that the qubits are constantly
+accumulating :math:`Z`-phases as is the case for real qubits.
+
+Usage in conjunction with ``getAmplitudes()``
+---------------------------------------------
+
+The Schrodinger evolution is carried out in a Hilbert space that encompasses
+several energy levels per quantum dot, to ensure accurate modeling of the
+interactions. Since QD Simulator is performing a full quantum simulation,
+users
+have access to the fully evolved state vector (following truncation to the
+computational subspace) at the end of a simulation. As evolution is happening
+in the lab frame, the probability amplitude results returned from
+``FullStateSimulator::getAmplitudes`` will include the extra
+:math:`Z`-phases that were accumulated due to natural precession, and the
+extra phases will be dependent on the resonance frequencies as well as the full
+evolution history during algorithm execution. Since this detailed history is
+unavailable to users, the use of the latter function for full state
+characterization is discouraged.
+
+This further highlights how closely the simulations with QD Simulator reflect actual
+quantum dot qubits. With physical qubits it is impossible to obtain actual
+probability amplitudes after evolution. Just as with physical qubits,
+techniques such as quantum state tomography :cite:p:`PaRe04` are
+required to reconstruct the full state when using QD Simulator.
+
+Using Quantum Dot Simulator in a Program
+----------------------------------------
+
+To enable QD Simulator, a ``DeviceConfig`` should be declared with ``"QD_SIM"``.
+
+.. code-block:: c++
+
+   iqsdk::DeviceConfig qd_sim_config("QD_SIM");
+
+Then, create a ``FullStateSimulator`` with the QD Simulator ``DeviceConfig``:
+
+.. code-block:: c++
+
+   iqsdk::FullStateSimulator qd_sim_device(qd_sim_config);
+
+Once the simulator is configured, then the ``quantum_kernel`` functions
+can be called to perform simulations on the QD Simulator.
+
+.. _qdsim_imp:
+
+Important Points on Quantum Dot Simulator
+-----------------------------------------
+
+Because the QD Simulator behaves more like realistic hardware, it
+carries a few limitations on the kinds of ``quantum_kernel`` functions that can
+be used in conjunction with it. Specifically, it expects that each
+``quantum_kernel`` in ``main()`` will consist of a workload where
+
+* All the qubits start in the :math:`\ket{0}` state
+* A sequence of 1-qubit and 2-qubit operations are applied
+* The final probabilities or amplitudes for each basis state are retrieved.
+
+There is no continuity between ``quantum_kernel`` functions
+called within ``main()``, because each time a ``quantum_kernel`` is called within
+``main()``, the QD Simulator history is reset and all qubits will start in the
+:math:`\ket{0}` state.
+
+If sub ``quantum_kernel`` functions are to be used, they must be specified
+outside of ``main()`` and combined as desired within a single
+``quantum_kernel``, and then called in ``main()``.
+
+``MeasZ`` operation is not advised to be used with the QD Simulator.
+This operation is designed to collapse the target qubit, and to store the
+result in a ``cbit``. Using this operation will set the cbit according to the
+probability distribution associated with the quantum state at the end of the
+quantum_kernel, and will not collapse the state. In addition, ``MeasX`` and
+``MeasY`` will likely give incorrect results.
+
+Prepare operations (e.g. ``PrepZ``) should be reserved for use either at the
+beginning of a ``quantum_kernel``, or not used at all. Using ``PrepZ`` should
+provide benefits with compiler optimizations when using the ``-O1`` flag. Not
+using ``PrepZ`` at the beginning will not impact the QD Simulator,
+since the qubits will always be reset to :math:`\ket{0}` when starting a simulation.
+However, using ``PrepZ`` or ``MeasZ`` in the middle of simulating a ``quantum_kernel`` on
+QD Simulator will result in unexpected behavior.
+
+Note that :math:`Z`` rotations are currently not natively enabled for the hardware in
+simulation. Hence a user wishing to use :math:`RZ(\theta)` can expect the
+compiler to implement it in one of two ways:
+
+* If using compiler optimization (``-O1``), then the compiler will absorb all RZ
+  operations into other single-qubit operations.
+
+* If not using compiler optimization (``-O0``), the RZ operation (or related
+  operations such as S, T, etc.) will be explicitly decomposed into RXY
+  operations as follows:
+
+.. code-block:: c++
+
+   quantum_kernel void rzDecomp (qbit qb, double angle) {
+     RXY(qb, M_PI, 0.5 * M_PI);
+     RXY(qb, M_PI, 0.5 * angle - 0.5 * M_PI);
+   }
+
+Tip for Faster Simulations
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Avoid all operations on qubits that have no gates applied. Any operations,
+including prepare (``PrepZ``), applied to a qubit causes it to be simulated.
+This means that even if a qubit only has ``PrepZ`` & ``MeasZ`` applied to it,
+it will still be simulated which adds overhead and increases runtime.
+
+Compilation with Quantum Dot Simulator as the Computing Backend
+---------------------------------------------------------------
+
+To enable QD Simulator, a platform configuration file that describes the
+configuration of quantum operations and the connectivity of the qubits must
+be given to the compiler. Users also need to specify flags and arguments for
+placement and scheduling. The following example assumes
+:ref:`the SDK location<path-spec>` has already been added to the shell path,
+
+.. code-block:: console
+
+   $ intel-quantum-compiler -c /<path to config file>/intel-quantum-sdk-QDSIM.json -p trivial -S greedy qd_GHZ.cpp

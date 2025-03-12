@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Code Samples &#8212; Intel® Quantum SDK API v1.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=45183d27"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Python Interface" href="python_model.html" />
+    <link rel="prev" title="Configuring the FullStateSimulator" href="full_state.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="code-samples">
+<span id="samples"></span><h1>Code Samples<a class="headerlink" href="#code-samples" title="Link to this heading">¶</a></h1>
+<p>See the <code class="docutils literal notranslate"><span class="pre">quantum-examples</span></code> and <code class="docutils literal notranslate"><span class="pre">python-quantum-examples</span></code> directories
+in the Intel® Quantum SDK root directory for demonstrations of each of the included
+qubit simulators’ APIs, demos, sample algorithm implementations and application simulations.</p>
+<section id="algorithms-and-simulations">
+<h2>Algorithms and Simulations<a class="headerlink" href="#algorithms-and-simulations" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">deutsch_jozsa_q7.cpp</span></code>:</p>
+<blockquote>
+<div><p>An implementation of the Deutsch-Jozsa algorithm.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">qec_q5.cpp</span></code>:</p>
+<blockquote>
+<div><p>An implementation of Quantum Error Correction (QEC) on 5 qubits.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">qft.cpp</span></code>:</p>
+<blockquote>
+<div><p>An implementation of the Quantum Fourier Transform (QFT) and Inverse QFT algorithms.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">dynamic_mbl_q3.cpp</span></code>:</p>
+<blockquote>
+<div><p>An implementation of Hamiltonian evolution simulating Many Body Localization (MBL).</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">tfd_q4_hybrid_demo.cpp</span></code>:</p>
+<blockquote>
+<div><p>A demonstration of generating Thermofield Double (TFD) state.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">teleport.cpp</span></code>:</p>
+<blockquote>
+<div><p>A simulation of the procedure to teleport a quantum state.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">qkd_bb84.cpp</span></code>:</p>
+<blockquote>
+<div><p>A simulation of establishing secure keys through Quantum Key Distribution
+(QKD) using the BB84 algorithm <span id="id1">[<a class="reference internal" href="../citations.html#id40" title="Charles H. Bennett and Gilles Brassard. Quantum cryptography: public key distribution and coin tossing. Theoretical Computer Science, 560:7-11, 2014. Theoretical Aspects of Quantum Cryptography – celebrating 30 years of BB84. doi:https://doi.org/10.1016/j.tcs.2014.05.025.">BB14</a>]</span>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">qnn_rus_n1.cpp</span></code>, <code class="docutils literal notranslate"><span class="pre">qnn_rus_nn1.cpp</span></code>:</p>
+<blockquote>
+<div><p>Examples for simulating small Quantum Neural Networks (QNN).</p>
+</div></blockquote>
+</section>
+<section id="programming">
+<h2>Programming<a class="headerlink" href="#programming" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">ghz.cpp</span></code>:</p>
+<blockquote>
+<div><p>An implementation of creating a Greenberger-Horne-Zeilinger state (GHZ) using
+a template approach and compile time recursion to parameterize the number of
+qubits. The result is a <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> function that can be changed to simulate any number
+of qubits up to a predefined maximum number of qubits at compile time.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">dynamic_param.cpp</span></code>:</p>
+<blockquote>
+<div><p>A demonstration of using dynamic parameters in <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">custom_backend.cpp</span></code>:</p>
+<blockquote>
+<div><p>An example of implementing a user-defined backend qubit simulator.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">iqs_custom_noise.cpp</span></code>:</p>
+<blockquote>
+<div><p>An example for using the Intel® Quantum Simulator with a custom noise model.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">custom_backend_mimicking_iqs_custom_noise.cpp</span></code>:</p>
+<blockquote>
+<div><p>An example implementing user-defined noise in qubits with the Intel®
+Quantum Simulator and comparing it to a user-defined backend that implements
+the same noise model.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">qexpr_ghz.cpp</span></code>, <code class="docutils literal notranslate"><span class="pre">qexpr_qft.cpp</span></code>, <code class="docutils literal notranslate"><span class="pre">qexpr_teleport.cpp</span></code>:</p>
+<blockquote>
+<div><p>Re-implementations of preceding examples using FLEQ quantum kernel
+expressions (<code class="docutils literal notranslate"><span class="pre">QExpr</span></code>) to simplify and modularize the code.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">state_preparation.cpp</span></code>:</p>
+<blockquote>
+<div><p>Uses a FLEQ <code class="docutils literal notranslate"><span class="pre">DataList</span></code> to prepare a list of qubits according to a string
+specification of <code class="docutils literal notranslate"><span class="pre">n</span></code> basis states.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">pauli_rotations.cpp</span></code>:</p>
+<blockquote>
+<div><p>Uses a FLEQ <code class="docutils literal notranslate"><span class="pre">DataList</span></code> to prepare multi-qubit Pauli rotations,
+preparations, and measurements given a Pauli string specification.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">ideal_GHZ.cpp</span></code>, <code class="docutils literal notranslate"><span class="pre">sampled_GHZ.cpp</span></code>, <code class="docutils literal notranslate"><span class="pre">qd_GHZ.cpp</span></code>:</p>
+<blockquote>
+<div><p>Several teaching examples demonstrating a development workflow. See <a class="reference internal" href="../tutorial/index.html#tutorials"><span class="std std-ref">Tutorials</span></a>.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">iqs_vs_clifford_comparison.cpp</span></code>, <code class="docutils literal notranslate"><span class="pre">rep_code_clifford.cpp</span></code>:</p>
+<blockquote>
+<div><p>A basic example and an advanced example for using the Clifford Simulator backend.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">run_ghz.py</span></code>, <code class="docutils literal notranslate"><span class="pre">run_qft.py</span></code>, <code class="docutils literal notranslate"><span class="pre">run_tfd_demo.py</span></code>:</p>
+<blockquote>
+<div><p>Several examples demonstrating how to use the Python Interface.
+Each interacts with one of the above examples.</p>
+</div></blockquote>
+<p><code class="docutils literal notranslate"><span class="pre">api_&lt;backend&gt;_test.cpp</span></code>:</p>
+<blockquote>
+<div><p>A demonstration of the API for each qubit simulator <code class="docutils literal notranslate"><span class="pre">&lt;backend&gt;</span></code>.</p>
+</div></blockquote>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Intel® Quantum SDK API</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started Guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Developers Guide and Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="attributions.html">How to Cite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="intro_to_QC.html">Introduction to Quantum Computing</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="usage.html">Using the Intel® Quantum SDK</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backends.html">Backends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced.html">Advanced Topics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="support.html">Support and Bug Reporting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../fleq/index.html">FLEQ Guide and Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../citations.html">Citations</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Developers Guide and Reference</a><ul>
+  <li><a href="usage.html">Using the Intel® Quantum SDK</a><ul>
+      <li>Previous: <a href="full_state.html" title="previous chapter">Configuring the <code class="docutils literal notranslate"><span class="pre">FullStateSimulator</span></code></a></li>
+      <li>Next: <a href="python_model.html" title="next chapter">Python Interface</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024 Intel Corporation. All Rights Reserved.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/dgr/samples.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

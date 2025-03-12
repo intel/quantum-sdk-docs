@@ -1,0 +1,145 @@
+
+.. _higher-order:
+
+Higher-order functions
+-----------------------
+
+Recursive ``QExpr`` functions are extremely effective at producing reusable
+quantum kernel expressions that can map over arbitrary compile-time ``QList`` or
+``DataList`` values. However, in many cases these recursive functions can
+result in significant boilerplate code, and patterns emerge common to functional
+programming.
+
+For example, one of the most common idioms in recursive ``QExpr`` functions is mapping
+a particular ``QExpr`` function over a ``QList``, applying it to each
+qubit in a sequential join. Consider the following recursive ``QExpr`` function
+that applies a ``PrepZ_`` gate to every qubit in a ``QList``:
+
+.. code-block:: C++
+
+  QExpr prepAll_recursive(qlist::QList qs) {
+    return qexpr::cIf(qs.size() > 0,
+                      qexpr::_PrepZ(qs[0]) + prepAll_recursive(qs + 1), // qs non-empty
+                      qexpr::identity()                                 // qs empty
+    );
+  }
+
+Using C++ function pointers, it is possible to write higher-order
+functions---that is, functions that take as input other function pointers---to
+reduce this boilerplate overhead.
+
+For convenience, the library ``qexpr_utils.h`` provides several examples of
+higher-order functions.
+
+For instance, the following function, ``map1``, takes as input a function
+pointer and applies it to each qubit in a ``QList``. The recursive structure of
+``map1`` is identical to that of ``prepAll_recursive``, just with an extra
+function pointer parameter.
+
+.. code-block:: C++
+
+  // qexpr_utils.h
+  template<typename QExprFun>
+  QExpr qexpr::map1(QExprFun f, qlist::QList qs) {
+    return qexpr::cIf(qs.size() > 0,
+             f(qs[0]) + qexpr::map1(f, qs + 1),  // qs non-empty
+             qexpr::identity()                   // qs empty
+    );
+  }
+
+This templated function applies a function ``f``, which takes a ``qbit`` and
+returns a ``QExpr``, to every ``qbit`` in a ``QList``, and returns the join of
+all the results. Then, instead of a user writing the function
+``prepAll_recursive()``, they can simply invoke ``map1(qexpr::_PrepZ, qs)`` to
+prepare all the qubits in ``qs``.
+
+Not all recursive ``QExpr`` functions fit exactly into this pattern. For
+example, suppose a user wants to apply rotation gates to each qubit in a
+``QList``, with different rotation arguments for each qubit. The relevant
+recursive function would need to map over both the ``QList`` argument and an
+array of rotation parameters, for example:
+
+.. code-block:: C++
+
+  // Assume that params is an array of doubles of size qs.size()
+  QExpr RZAll_recursive(qlist::QList qs, double* params) {
+    return qexpr::cIf(qs.size() > 0,
+                      qexpr::_RZ(qs[0], params[0]) + RZAll_recursive(qs+1, params+1),
+                      qexpr::identity()
+    );
+  }
+
+Because ``_RZ`` does not take a single qubit argument, it is not possible to apply ``map1``
+directly. However,
+the ``qexpr_utils.h`` library also supplies a more general ``map`` function, which
+takes as input a function ``f`` that takes in any number of arguments, the first
+of which is a ``qbit``. The ``map`` function then expects (1) a ``QList`` to map
+over; (2) some number of ``QList`` or array arguments (it applies ``f`` to every
+element in the array); and (3) some number of scalar arguments, which it passes
+directly to ``f``.
+
+.. code-block:: C++
+
+  // qexpr_utils.h
+  template<typename QExprFun, typename... Args>
+  QExpr qexpr::map(QExprFun f, qlist::QList qs, Args... args) noexcept;
+
+Instead of ``RZAll_recursive(qs, params)``, a user can just apply
+``qexpr::map(qexpr::_RZ, qs, params)`` to obtain the same result.
+
+This ``map`` function can be used in several ways:
+
+1. Like ``map1``, can be used to map a single-qubit gate over a ``QList``:
+
+  .. code-block:: C++
+
+      qexpr::map(qexpr::_PrepZ,qs)
+
+2. Map a multi-qubit gate, like ``CNOT``, over two ``QList``\s:
+
+  .. code-block:: C++
+
+    qexpr::map(qexpr::_CNOT, qs1, qs2)
+
+3. Map a single-qubit gate that accepts parameters, e.g. ``RZ``, over a
+   ``QList``, with the same scalar parameter applied to each argument:
+
+  .. code-block:: C++
+
+   qexpr::map(qexpr::_RZ,qs,M_PI/2)
+
+4. Map a single-qubit gate with parameters, like ``RZ``, over (1) a ``QList``
+   and (2) an array of rotation parameters:
+
+  .. code-block:: C++
+
+    double params[3] = {M_PI/2, M_PI/4, M_PI/8};
+    qexpr::eval_hold(qexpr::map(qexpr::_RZ, qs, params));
+
+.. _local_qubits:
+
+Local qubits
+-------------
+
+Like ``quantum_kernel`` functions, ``QExpr`` functions can use both local and global
+qubits. However, while top-level ``quantum_kernel`` functions cannot accept qubit
+arguments, there is no such restriction for quantum kernel expressions. Qubits
+or ``QList`` values can now be declared locally in a non-quantum function and
+passed to top-level ``QExpr`` functions. For example:
+
+.. code-block:: C++
+
+    int main() {
+      qbit q;
+      bool b;
+      eval_hold(_PrepZ(q) + _H(q) + _MeasZ(q, b));
+    }
+
+The underlying reason for this is that every evaluation call to ``eval_hold`` or
+``eval_release`` from a (classical) function ``foo()`` tells the compiler to
+treat ``foo()`` as a ``quantum_kernel`` function. Because
+local qubits can be declared inside ``quantum_kernel`` functions, they can therefore
+be declared in classical functions with evaluation calls.
+
+If local qubits are declared within a ``QExpr``-returning function, it is best practice
+to use the ``PROTECT`` attribute; see :ref:`limitations`.

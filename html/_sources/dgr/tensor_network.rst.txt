@@ -1,0 +1,110 @@
+.. _tensor_network:
+
+Tensor Network Backend
+======================
+
+The Tensor Network (TN) backend is a qubit simulator that represents a quantum circuit as a
+network of Tensors. Unlike some Tensor Networks which take on a specific form (e.g. Matrix Product State (MPS) or Tree Tensor Network (TTN)),
+the Tensor Network we use can take on an arbitrary geometry based on the simulated circuit. With the exception
+of calling State Preparation & Measurement (SPAM) operations, running a ``quantum_kernel`` will build up the Tensor Network which is an inexpensive
+operation. Since SPAM operations are treated as mid-circuit operations, it is recommended to avoid them unless
+you specifically are intending to see the effects of mid-circuit measurements since they have a high cost to perform.
+
+The most cost-effective way to sample an algorithm is to call ``getSamples()``; unlike explicit SPAM gates, ``getSamples()`` will not collapse the state.
+
+The part of the Tensor Network simulation that requires the most computation is when the Tensor Network requires a
+contraction. Before a contraction, the TN simulator will do a search to try to find the best contraction path. Then,
+using the path found it will perform the contraction to the desired result. Finding a good contraction path
+can in some cases drastically reduce the amount of computation needed to do the contraction. Depending on which API is called
+(i.e. ``getProbabilities()`` or ``getExpectationValue()``), a different contraction will be performed to get the result.
+
+Tensor Networks are best at simulating circuits that have a low tree-depth.
+
+When implementing variational quantum algorithms, such as a Quantum Approximate Optimization Algorithm (QAOA)-style algorithm, it is best to use a new instantiation of the Tensor Network
+object each time. Simulating a circuit twice with different parameters is inefficient:
+
+1. The TN will need to reset the quantum state with expensive mid-circuit preparations.
+2. During the second contraction, the tensors from both runs of the ansatz will be contracted.
+
+In general, the user should take care in making sure that the result they are trying to get out of the Tensor Network simulator
+is reasonable. Depending on the quantum circuit, retrieving amplitudes of a few states in a 100-qubit algorithm may be possible,
+but retrieving all of them would not be.
+
+Brief Overview of ``TensorNetworkConfig``
+-----------------------------------------
+Class to hold configuration data specifically used to configure the
+``TensorNetworkSimulator``.
+
+* Constructor
+
+   .. code-block:: c++
+
+      TensorNetworkConfig(bool verbose = false,
+                      bool synchronous = true);
+
+   Specify configuration data for the TN backend. Creates a ``TensorNetworkConfig`` which has
+   the following properties:
+
+   ``bool verbose``:
+      Verbosity of the simulator.
+
+   ``bool synchronous``:
+      Whether the simulator is synchronous.
+
+* ``isValid()``
+
+   .. code-block:: c++
+
+      bool TensorNetworkConfig::isValid();
+
+   Return whether the given config instance is valid.
+
+
+The ``TensorNetworkSimulator`` is the class used for doing Tensor Network simulation. The ``TensorNetworkConfig``
+initializes the Tensor Network simulator.
+
+The ``TensorNetworkSimulator`` can use any API from the ``FullStateSimulator``.
+
+As an example for Tensor Network Simulator-specific API details:
+
+.. code-block:: c++
+
+   QssMap<double> TensorNetworkSimulator::getProbabilities(
+       std::vector<std::reference_wrapper<qbit>>& qids,
+       std::vector<QssIndex> bases,
+       double threshold=-1);
+
+``getProbabilities()`` returns the conditional probabilities of a subset of the qubits (``qids``) used in the simulation.
+If ``bases`` is empty, then the Tensor Network will perform a single contraction directly to the tensor network of all conditional probabilities of the given qubits.
+Otherwise, for each ``QssIndex`` in the given ``bases``, a contraction is done to compute the specific conditional probability of the specified basis.
+
+
+Three additional APIs are available for the Tensor Network Simulator.
+
+* ``draw()`` :
+
+   .. code-block:: c++
+
+      void draw();
+
+   Creates a graphical representation of the Tensor Network. The graphic will appear in a window.
+
+* ``getExpectationValue()`` :
+
+   .. code-block:: c++
+
+      double getExpectationValue(
+        std::vector<std::reference_wrapper<qbit>> &qids, std::string pauli_string);
+
+   Returns the expectation value of the given Pauli operator ``pauli_string``.
+
+* ``setContractionPathOptimizer()``:
+
+   .. code-block:: c++
+
+      void setContractionPathOptimizer(std::string optimizer_method);
+
+   Sets the contraction path optimizer to ``optimizer_method``.
+   The default optimizer is ``"greedy"``.
+   Valid options are ``"optimal"``, ``"dynamic-programming"``, ``"branch"``, ``"greedy"``, ``"random-greedy"``, ``"random-greedy-128"``, ``"auto"``, and ``"auto-hq"``.
+   See https://optimized-einsum.readthedocs.io/en/stable/path_finding.html for more details.

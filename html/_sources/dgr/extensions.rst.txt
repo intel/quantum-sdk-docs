@@ -1,0 +1,248 @@
+.. _extensions:
+
+Language Extensions
+===================
+The |IQSDK| defines a number of data types, keywords, and classes
+to facilitate expressing quantum algorithms as well as some common tasks
+associated with working with quantum qubit simulators. A complete list of the
+methods is provided in |API|.
+This section summarizes the key concepts developers should know
+when writing C++-based programs in the |IQSDK|.
+
+Built-in Types & Intrinsic Functions
+------------------------------------
+
+``qbit``:
+
+   Data type for variables representing qubits. ``qbit`` variables can be
+   declared either globally in the global namespace or locally within a
+   ``quantum_kernel`` function (see :ref:`Local variables<qbit>`). A ``qbit``
+   variable cannot be used as a member variable of any class.
+
+``cbit``:
+
+   Data type for variables to represent a classical bit returned by a quantum
+   measurement. Equivalent to ``bool``.
+
+``quantum_kernel``:
+
+   Attribute for a function that will contain quantum logic, e.g. a gate acting
+   on a qubit or another ``quantum_kernel``.
+
+``release_quantum_state()``:
+
+   An intrinsic function that once invoked in a ``quantum_kernel``, indicates
+   that the quantum state is unconstrained from that point onwards. Quantum
+   variables can be re-used in a new ``quantum_kernel``, but they must be
+   re-initialized using ``PrepX``, ``PrepY``, or ``PrepZ`` since the quantum
+   states are unspecified after being released. Calling
+   ``release_quantum_state()`` facilitates optimizations when compiling with the
+   ``-O1`` flag, which can lead to more-efficient execution of the quantum
+   algorithm. For an example of the effects of optimization on a
+   ``quantum_kernel`` using ``release_quantum_state()``, see
+   |Tutorials:ReleaseQuantumStateExample|.
+
+``std::vector<std::reference_wrapper<qbit>>``
+
+    Data structure used to specify the order of qubits or a subset of qubits for reporting
+    data from a full state quantum simulator. Reference wrappers are
+    constructed by calling ``std::ref(q)`` for qubit variables ``q``. This
+    idiom is important because there is no a priori relationship between qbit
+    type variables and hardware qubits.
+    Conceptually, this is similar to an object instance that does not necessarily
+    occupy the same memory address during each execution.
+
+    For example, suppose a user has two qubits: ``q1`` in state :math:`\ket{0}`
+    and ``q2`` in state :math:`\ket{1}`. If ``getProbabilities`` is invoked with
+    the vector ``{std::ref(q1), std::ref(q2)}`` of reference wrappers, the
+    reported state will be :math:`\ket{01}`; if it is invoked with
+    ``{std::ref(q2), std::ref(q1)}``, the state will be: :math:`\ket{10}`.
+
+Known Limitations
+^^^^^^^^^^^^^^^^^
+Top-level ``quantum_kernel`` functions can only refer to global ``qbit`` variables or
+local ``qbit`` variables defined inside a ``quantum_kernel`` function.
+In other words, the following is not a valid top-level ``quantum_kernel`` function signature:
+``quantum_kernel void my_single_qubit_function(qbit &q);``.
+This restriction does not apply to quantum kernel expressions, which are described in |FLEQ:LocalQubits|.
+
+
+Namespaces
+----------
+``iqsdk``
+
+   Namespace providing access to the classes and methods of the |IQSDK|.
+
+``qexpr``
+
+   Namespace providing access to quantum kernel expressions. Part of the
+   Functional Language Extension for Quantum (FLEQ). See |FLEQ:QExpr|.
+
+``qlist``
+
+   Namespace providing access to compile-time quantum lists (see |FLEQ:QList|).
+
+``datalist``
+
+   Namespace providing access to compile-time strings (see |FLEQ:DataList|).
+
+
+Includes & Classes
+------------------
+``<clang/Quantum/quintrinsics.h>``:
+   Required header file that provides access to the supported quantum
+   gates as well as the instructions to prepare the state of a qubit and perform
+   a measurement on a qubit. See :ref:`Supported Quantum Logic Gates<gates>`
+   and :ref:`Intel Quantum Dot Qubit Gates<native>` for additional details about
+   the gates.
+
+
+Quantum Backends
+^^^^^^^^^^^^^^^^
+
+.. full state simulator is used most-frequently in docs, so leave this first
+
+``<quantum_full_state_simulator_backend.h>``:
+
+   This header file is needed for full state simulators, and provides access to the
+   ``FullStateSimulator`` class as well as auxiliary helper classes.
+
+   ``IqsConfig``:
+
+      Configuration data for the ``FullStateSimulator`` class.
+
+   ``FullStateSimulator``:
+
+      Class with API calls to both set up a quantum simulator device and access
+      the underlying quantum state during simulation. See :ref:`Configuring the
+      FullStateSimulator<full_state>` for a quick explanation or
+      |API| for a complete description of the class's methods.
+
+``<quantum_clifford_simulator_backend.h>``:
+
+   Header file needed for using the Clifford Simulator.
+
+   ``ErrSpec1Q``:
+
+      Configuration struct for single qubit gate errors.
+
+   ``ErrSpec2Q``:
+
+      Configuration struct for two qubit gate errors.
+
+   ``ErrSpecIdle``:
+
+      Configuration struct for idling.
+
+   ``ErrorRates``:
+
+      Configuration struct for error rates of each gate type.
+
+   ``GateTimes``:
+
+      Configuration struct for duration of each gate type.
+
+   ``CliffordSimulatorConfig``:
+
+      Configuration struct for setting up a Clifford Simulator Device.
+
+   ``CliffordSimulator``:
+
+      Backend interface for using the Clifford Simulator.
+
+``<quantum_tensor_network_backend.h>``:
+
+   Header file needed for using the Tensor Network Backend.
+
+   ``TensorNetworkConfig``:
+
+      Configuration struct for setting up a Tensor Network Device.
+
+   ``TensorNetworkSimulator``:
+
+      Backend interface for using Tensor Network Simulation.
+
+``<quantum_custom_backend.h>``:
+
+   Header file needed for using or developing a Custom Backend.
+
+   ``CustomInterface``:
+
+      Abstract base class for user to implement their own simulator.
+
+   ``CustomSimulator``:
+
+      Backend interface for using the custom backend.
+
+
+``<qrt_errors.hpp>``:
+
+   This header file is included by any quantum backend. It defines the data type for
+   communicating success or failure from the quantum runtime.
+
+   ``QRT_ERROR_T``:
+
+      Data type representing potential errors in setting up a quantum device.
+      Either
+      ``QRT_ERROR_SUCCESS``, ``QRT_ERROR_WARNING``, or ``QRT_ERROR_FAIL``.
+
+``<quantum_backend.h>``:
+
+   This header file contains base classes for simulation devices. It is
+   included by any needed simulation interface.
+
+``<quantum.hpp>``:
+
+   Deprecated. Includes headers for all backends.
+
+Accessing Results
+^^^^^^^^^^^^^^^^^
+
+``<qrt_indexing.hpp>``:
+
+   This header file is included by any quantum backend. It defines the data types for
+   accessing backend results.
+
+   ``QssIndex``:
+
+      Data type for representing quantum basis elements. Used for indexing into
+      data structures representing quantum state spaces (QSS).
+
+   ``QssMap<T>``:
+
+      A map from ``QssIndex`` values to type ``T`` values. Used for
+      representing total or partial quantum state spaces  where ``T`` is
+      ``double`` for probabilities or ``complex`` for amplitudes.
+
+Functional Language Extension for Quantum (FLEQ)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``<clang/Quantum/qexpr.h>``:
+
+   Header file that provides resources for building quantum kernel expressions.
+   See |FLEQ:QExpr|.
+
+   ``QExpr``:
+
+      Data type of quantum kernel expressions, a representation of quantum
+      kernel functions provided by FLEQ. See |FLEQ:QExpr| for more information.
+
+``<qlist-utils.h>``:
+
+   Header file that provides useful utilities for working with quantum kernel expressions.
+
+``<clang/Quantum/qlist.h>``:
+
+   Header file that provides access to compile-time qubit lists. See |FLEQ:QList|.
+
+   ``qlist::QList``:
+
+      Data type for compile-time qubit lists.
+
+``<clang/Quantum/datalist.h>``:
+
+   Header file that provides access to compile-time strings. See |FLEQ:DataList|.
+
+   ``datalist::DataList``:
+
+      Data type for compile-time strings.

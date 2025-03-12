@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>In-lining &amp; quantum_kernel functions &#8212; Intel® Quantum SDK API v1.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=45183d27"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="in-lining-quantum-kernel-functions">
+<h1>In-lining &amp; <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions<a class="headerlink" href="#in-lining-quantum-kernel-functions" title="Link to this heading">¶</a></h1>
+<p>When the compiler prepares a <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> function, it separates all the quantum
+instructions (as Intermediate Representation (IR)) from the classical IR so that it can deliver a complete set
+of instructions to the quantum backend.</p>
+<p>Local declarations and operations with traditional C++ data types <em>are</em> supported
+inside a <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> function, which aids readability and preserves programming
+concepts.
+At compile time, these “classical” instructions are pulled out of the <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code>.
+This has a consequence on classical instructions, especially <code class="docutils literal notranslate"><span class="pre">bool</span></code> and <code class="docutils literal notranslate"><span class="pre">cbit</span></code> measurement results:
+any operations on classical variables written inside a <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> will
+be executed at the beginning of that <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code>, unless
+they are written after the final quantum gate in the <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code>.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">qbit</span><span class="w"> </span><span class="n">q0</span><span class="p">;</span>
+<span class="n">qbit</span><span class="w"> </span><span class="n">q1</span><span class="p">;</span>
+
+<span class="n">quantum_kernel</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">myKernel</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;b has value false (0) here after initialization: &quot;</span>
+<span class="w">            </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="w">  </span><span class="n">PrepZ</span><span class="p">(</span><span class="n">q0</span><span class="p">);</span>
+<span class="w">  </span><span class="n">X</span><span class="p">(</span><span class="n">q0</span><span class="p">);</span>
+<span class="w">  </span><span class="n">MeasZ</span><span class="p">(</span><span class="n">q0</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">);</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;b still has value 0 here since the quantum gates are not complete: &quot;</span>
+<span class="w">            </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">c</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="w">  </span><span class="n">PrepZ</span><span class="p">(</span><span class="n">q1</span><span class="p">);</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;After all gates in quantum_kernel have executed, b has value true (1): &quot;</span>
+<span class="w">            </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>A <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> may be called from within another <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code>. Here,
+too, the compiler in-lines the quantum instructions from the
+innermost <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> and continues until it produces one sequence of
+instructions that corresponds to the “top-level” <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> call that
+begins the quantum algorithm.</p>
+<p>In-lining combined with the earlier rule on rearranging operations on measurement results means that for
+<code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions containing a measurement which are called in the middle
+of another <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> function, the operations on those <code class="docutils literal notranslate"><span class="pre">cbit</span></code> and <code class="docutils literal notranslate"><span class="pre">bool</span></code> measurement results will be moved to
+the beginning of the resulting set of instructions.
+This means that the following code:</p>
+<p>If a user needs classical instructions to be executed strictly in the middle of
+a quantum algorithm, they should break up the algorithm into multiple top-level
+quantum kernel functions. Alternatively, they can use the <code class="docutils literal notranslate"><span class="pre">bind</span></code> operator on
+quantum kernel expressions (see FLEQ Guide and Reference (Barriers and binding)).</p>
+<p>The restriction that the entire <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> be known at compile time
+together with the in-lining behavior means that the top-level kernel cannot
+accept an arbitrary variable of type <code class="docutils literal notranslate"><span class="pre">qbit</span></code> as a parameter. The variables of
+<code class="docutils literal notranslate"><span class="pre">qbit</span></code> type that will be operated on must be explicitly defined in the
+“top-level” kernel’s instructions; however, inner <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions may be
+written to accept <code class="docutils literal notranslate"><span class="pre">qbit</span></code> type variables as parameters.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This restriction applies primarily to <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions, and <strong>not</strong>
+to FLEQ. See FLEQ Guide and Reference if you need this feature.</p>
+</div>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">qbit</span><span class="w"> </span><span class="n">qs</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span>
+
+<span class="c1">// A nested quantum_kernel may take either classical or quantum arguments</span>
+<span class="n">quantum_kernel</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">bell</span><span class="p">(</span><span class="n">qbit</span><span class="w"> </span><span class="o">&amp;</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">qbit</span><span class="w"> </span><span class="o">&amp;</span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">PrepZ</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+<span class="w">  </span><span class="n">PrepZ</span><span class="p">(</span><span class="n">b</span><span class="p">);</span>
+<span class="w">  </span><span class="n">H</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+<span class="w">  </span><span class="n">CNOT</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="c1">// A top level quantum_kernel may take classical arguments, but not quantum</span>
+<span class="c1">// arguments</span>
+<span class="n">quantum_kernel</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">topLevelBell</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">bell</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">q</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+<span class="p">}</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="n">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">  </span><span class="c1">// may call top-level quantum_kernel</span>
+<span class="w">  </span><span class="n">topLevelBell</span><span class="p">();</span>
+
+<span class="w">  </span><span class="c1">// may not call quantum_kernel with quantum arguments</span>
+<span class="w">  </span><span class="c1">// invalid: bell(q[0], q[2]);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Intel® Quantum SDK API</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="index.html">Developers Guide and Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fleq/index.html">FLEQ Guide and Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../citations.html">Citations</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024 Intel Corporation. All Rights Reserved.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/dgr/inlining.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

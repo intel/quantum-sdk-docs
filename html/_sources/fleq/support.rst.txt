@@ -1,0 +1,141 @@
+.. _fleq_support:
+
+Support
+########
+
+.. _limitations:
+
+Known limitations
+*****************
+
+
+Limitations on FLEQ types
+--------------------------
+
+* Quantum kernel expressions must be invoked via an evaluation call
+  ``eval_hold`` or ``eval_release``. If a function that returns a ``QExpr`` type
+  is simply called from a top-level function, it will have no effect on the quantum backend
+  (:ref:`evaluation`). For example, consider the following example:
+
+.. code-block:: C++
+
+  QExpr myQExprFunction(qbit &q);
+
+  int main() {
+    ...
+    // WRONG: Returns an unused QExpr value; does NOT invoke the quantum runtime
+    myQExprFunction(q);
+
+    // CORRECT: Invokes the quantum runtime by evaluating a QExpr value
+    qexpr::eval_hold(myQExprFunction(q));
+  }
+
+* Evaluation calls are not supported inside of ``quantum_kernel`` functions that
+  also call basic quantum gates.
+
+* For quantum kernel expressions, there is no appreciable difference between the
+  use of the ``-O0`` and ``-O1`` optimization flags. See
+  :ref:`compilation-overview`.
+
+* All ``qbit`` arguments must be passed by reference.
+
+* Conventional data passed into and out of ``QExpr``-returning functions within the
+  same evaluation or function body should be passed by reference (see :ref:`evaluation`).
+
+* Arguments of FLEQ types ``QExpr``, ``QList``, and ``DataList`` should be passed
+  by value.
+
+* The ``PROTECT`` attribute should be added to a ``QExpr``-returning function, ``f`` , if:
+
+  1. ``f`` uses ``this_as_expr``.
+
+  2. ``f`` introduces any local variables including local qubits within its body.
+
+  3. the evaluation behavior of classical logic inside the body of ``f`` is order-dependent or
+     branch dependent with respects to other such calls within the evaluation, especially with respect
+     to ``bind``-enforced ordering or when said classical logic generates side-effects outside the scope of FLEQ.
+
+  4. any of the other cases above are in doubt or unclear.
+
+* There are known cases where post-quantum sections are *not* moved/inserted into the approriate branch. This
+  happens in special cases where both ``bind`` and unresolved branching are used together. When post-processing is
+  desired within a ``QExpr``, it is best practice to enforce desired order using ``bind`` and empty ``QExpr``
+  -returning functions (return ``identity`` or ``this_as_expr`` without gates) wrapping classical post-processing
+  instructions and including the ``PROTECT`` attribute.
+
+* ``QList`` declarations created using the ``listable`` macro e.g.
+  ``listable(<name>, N)`` will be displayed during circuit printing and
+  debugging as ``<name>_raw``. See :ref:`qlist`. The same is true for the
+  ``DataList`` type and the ``import_with_name`` macros.
+
+* ``DataList`` casts to ``int``, ``double``, and ``bool`` will result in
+  undefined behavior if the ``DataList`` cannot be coerced to that type. See
+  :ref:`datalist`.
+
+* The command line ``-P`` flag for printing quantum kernels will only print
+  quantum kernel expressions inside evaluation calls. In addition, it will only
+  print the circuit after optimization and synthesis.
+
+* Multi-qubit quantum control is limited to control by up to ``8`` qubits (see
+  :ref:`unitary-control`). This limit can be overcome by chaining ``control``
+  calls using recursion (see :ref:`recursion`) or with the explicit use of
+  ancilla.
+
+Classical control flow
+-----------------------
+
+* Functions that return quantum kernel expressions must have a single return
+  statement. The control flow of the function cannot depend on C++ conditionals
+  (if statements) or loops. All classical conditionals inside a ``QExpr``
+  function should instead use ``cIf`` (see :ref:`branching`).
+
+* Similarly, ``let`` assignments cannot vary based on classical conditionals
+  (see :ref:`let-get`). Best practice is to not use ``let`` and ``get`` with C++
+  branching.
+
+* Recursive ``QExpr`` functions must be able to be unrolled at compile-time.
+  FLEQ does not currently support repeat-until-success loops in a
+  single quantum kernel expression. See :ref:`recursion`.
+
+* ``cIf`` statements that cannot be resolved at compile-time can produce an exponential
+  growth in the number of QBBs produced by that ``QExpr`` (see :ref:`branching`). This is
+  especially the case when using ``join`` over unresolved ``cIf`` branching. This exponential
+  blowup can be avoided by using ``bind`` in the place of ``join`` (see :ref:`bind`).
+
+* Traditional C++ if statements and loops that contain only classical
+  instructions are not encouraged. Best practice is to use ``cIf`` and recursion
+  as described in :ref:`branching` and :ref:`recursion`.
+
+Barriers
+--------
+
+* Measurement results are not available within the same ``QExpr`` where measurements
+  are invoked, unless they are separated by a barrier like ``bind`` or
+  ``fence`` (see :ref:`bind`).
+
+* ``qexpr::power`` does not distribute over ``bind`` the way it does with
+  ``join``. Best practice is to never use ``bind`` with ``qexpr::power()``. See
+  :ref:`bind`.
+
+
+Print buffer
+-------------
+
+* The order in which ``printQuantumLogic`` and ``printDataList`` are displayed
+  is based on a topological sort of the evaluation call dependencies, i.e. the
+  order of traversal of the FLEQ evaluation graph (see :ref:`compilation-overview`).
+
+* When ``exitAtCompile`` is found in the dependency of an evaluation call, the exit message
+  is added to the print buffer and the build failure is only triggered once the build is complete,
+  or a different failure point is found.
+
+* ``exitAtCompile`` triggers a fail regardless of whether the call is within an unresolved branch or not.
+  if one desires an exit be triggered only in one branch of many unresolved branches, consider using
+  ``exitAtRuntime`` instead.
+
+
+
+Bug reporting and feature requests
+**********************************
+
+Users can get technical support, share ideas, and report bugs by visiting `Intel Communities <https://community.intel.com/t5/Intel-Quantum-SDK/bd-p/intel-quantum-sdk>`_.

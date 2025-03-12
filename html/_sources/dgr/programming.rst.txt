@@ -1,0 +1,16 @@
+.. _programming:
+
+Programming with the |Intel| Quantum SDK
+=========================================
+
+.. _inlining:
+
+.. include:: inlining.rst
+
+.. _meas_full_state:
+
+.. include:: meas_full_state.rst
+
+.. _qbit:
+
+.. include:: qbit.rst

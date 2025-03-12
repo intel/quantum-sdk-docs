@@ -1,0 +1,120 @@
+.. _full_state:
+
+Configuring the ``FullStateSimulator``
+======================================
+Before a ``quantum_kernel`` can be called, a properly configured instance of the
+``FullStateSimulator`` class is required. This can be done by creating an
+``IqsConfig`` object with the desired values and passing it to the constructor
+or initializer of the ``FullStateSimulator.`` The type ``QRT_ERROR_T`` is used
+to check-on the status of simulator instance. For example,
+
+.. code-block:: c++
+
+   // configure to use N qubits; accepts defaults for remaining
+   iqsdk::IqsConfig iqs_config(/*num_qubits*/ N);
+
+   // setup quantum device
+   iqsdk::FullStateSimulator iqs_device(iqs_config);
+   iqs_device.printVerbose(true);
+
+   // ensure setup was successful
+   if (iqsdk::QRT_ERROR_SUCCESS != iqs_device.ready()) return 1;
+
+
+The essential classes and methods for configuration are detailed below. See
+|API| for the full list of APIs
+to find details about retrieving data.
+
+Overview of ``FullStateSimulator``
+----------------------------------
+Class with API calls to both set up a quantum simulator device and access the
+underlying quantum state during simulation.
+
+* Constructor
+
+   .. code-block:: c++
+
+      FullStateSimulator(IqsConfig &device_config);
+
+   Instantiates a simulator object that is initialized to the settings in
+   ``device_config``.
+
+* ``printVerbose()``
+
+   .. code-block:: c++
+
+      QRT_ERROR_T FullStateSimulator::printVerbose(bool printVerbose);
+
+   Sets the status of the simulator's verbose output.
+
+* ``ready()``
+
+   .. code-block:: c++
+
+      QRT_ERROR_T FullStateSimulator::ready();
+
+   Returns an ``enum`` of ``QRT_ERROR_T``; ``QRT_ERROR_SUCCESS`` if the
+   simulator is ready to run a ``quantum_kernel``, else returns
+   ``QRT_ERROR_FAIL``. Ensure the simulator is ready before executing
+   ``quantum_kernel`` functions or making any queries.
+
+   Provides a trigger for opportunities to define error handling logic.
+
+.. _backend-execution-options:
+
+Execution Options
+-------------------------
+
+The |IQSDK| backends have two execution modes:
+
+* Synchronous (default): pauses the execution of the program whenever a QBB is called. Execution resumes once the QBB is done running.
+* Asynchronous: the host puts the QBB into a queue of QBBs to be run.
+
+Prior to using the results of any measurements, the user should call ``wait()`` on the device to ensure that the device has finished running and set the appropriate ``cbit(s)``.
+Any API that sets a device property (e.g. setting contraction path method) is put on the queue, while any API that gets simulation data from the device
+blocks until the device has finished running.
+
+The ``synchronous`` parameter in the ``DeviceConfig`` specifies whether the backend will run in synchronous or asynchronous mode.
+Other backends such as :ref:`Clifford Simulator<clifford>`, :ref:`Tensor Network Simulator<tensor_network>`, and a user-defined
+:ref:`Custom Backend<custom_backend>` can also utilize the ``asynchronous`` execution mode for faster simulations.
+
+Overview of ``IqsConfig``
+-------------------------
+Class to hold configuration data used to configure the
+``FullStateSimulator`` or user-defined qubit simulator backend.
+
+* Constructor
+
+   .. code-block:: c++
+
+      IqsConfig(int num_qubits = 1,
+                 std::string simulation_type = "noiseless",
+                 bool verbose = false,
+                 std::size_t seed = time(NULL),
+                 bool synchronous = true,
+                 double depolarizing_rate = 0.01);
+
+   Specify configuration data for the IQS. Creates an ``IqsConfig`` which has
+   the following properties:
+
+      ``int num_qubits``:
+         Number of qubits in simulation.
+
+      ``std::string simulation_type``:
+         Type of simulation to be run.
+         Valid simulation types are: ``"noiseless"``, ``"depolarizing"``, and ``"custom"``.
+         See :ref:`Customizable Noise Modeling<customizable-noise-modeling>` for details on the ``"custom"`` option.
+
+      ``std::size_t seed``:
+         Custom seed for RNG. If no seed is provided, the current time will be used as the seed.
+
+      ``double depolarizing_rate``:
+         Depolarizing rate for noisy simulation.
+
+* ``isValid()``
+
+   .. code-block:: c++
+
+      bool IqsConfig::isValid();
+
+   Returns whether the given config instance is valid.

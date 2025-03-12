@@ -1,0 +1,8 @@
+Advanced Topics
+==============================
+
+.. toctree::
+   :maxdepth: 3
+   :caption: Contents:
+
+   user_passes

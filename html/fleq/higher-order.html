@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Higher-order functions &#8212; Intel® Quantum SDK API v1.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=45183d27"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Domain-specific languages using FLEQ" href="dsl.html" />
+    <link rel="prev" title="Ordering of classical and quantum operations" href="classical-quantum-ordering.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="higher-order-functions">
+<span id="higher-order"></span><h1>Higher-order functions<a class="headerlink" href="#higher-order-functions" title="Link to this heading">¶</a></h1>
+<p>Recursive <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> functions are extremely effective at producing reusable
+quantum kernel expressions that can map over arbitrary compile-time <code class="docutils literal notranslate"><span class="pre">QList</span></code> or
+<code class="docutils literal notranslate"><span class="pre">DataList</span></code> values. However, in many cases these recursive functions can
+result in significant boilerplate code, and patterns emerge common to functional
+programming.</p>
+<p>For example, one of the most common idioms in recursive <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> functions is mapping
+a particular <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> function over a <code class="docutils literal notranslate"><span class="pre">QList</span></code>, applying it to each
+qubit in a sequential join. Consider the following recursive <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> function
+that applies a <code class="docutils literal notranslate"><span class="pre">PrepZ_</span></code> gate to every qubit in a <code class="docutils literal notranslate"><span class="pre">QList</span></code>:</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">QExpr</span><span class="w"> </span><span class="nf">prepAll_recursive</span><span class="p">(</span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">qs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">qs</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_PrepZ</span><span class="p">(</span><span class="n">qs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">prepAll_recursive</span><span class="p">(</span><span class="n">qs</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="c1">// qs non-empty</span>
+<span class="w">                    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">()</span><span class="w">                                 </span><span class="c1">// qs empty</span>
+<span class="w">  </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Using C++ function pointers, it is possible to write higher-order
+functions—that is, functions that take as input other function pointers—to
+reduce this boilerplate overhead.</p>
+<p>For convenience, the library <code class="docutils literal notranslate"><span class="pre">qexpr_utils.h</span></code> provides several examples of
+higher-order functions.</p>
+<p>For instance, the following function, <code class="docutils literal notranslate"><span class="pre">map1</span></code>, takes as input a function
+pointer and applies it to each qubit in a <code class="docutils literal notranslate"><span class="pre">QList</span></code>. The recursive structure of
+<code class="docutils literal notranslate"><span class="pre">map1</span></code> is identical to that of <code class="docutils literal notranslate"><span class="pre">prepAll_recursive</span></code>, just with an extra
+function pointer parameter.</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// qexpr_utils.h</span>
+<span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">QExprFun</span><span class="o">&gt;</span>
+<span class="n">QExpr</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">map1</span><span class="p">(</span><span class="n">QExprFun</span><span class="w"> </span><span class="n">f</span><span class="p">,</span><span class="w"> </span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">qs</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">qs</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">           </span><span class="n">f</span><span class="p">(</span><span class="n">qs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">map1</span><span class="p">(</span><span class="n">f</span><span class="p">,</span><span class="w"> </span><span class="n">qs</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">),</span><span class="w">  </span><span class="c1">// qs non-empty</span>
+<span class="w">           </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">()</span><span class="w">                   </span><span class="c1">// qs empty</span>
+<span class="w">  </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>This templated function applies a function <code class="docutils literal notranslate"><span class="pre">f</span></code>, which takes a <code class="docutils literal notranslate"><span class="pre">qbit</span></code> and
+returns a <code class="docutils literal notranslate"><span class="pre">QExpr</span></code>, to every <code class="docutils literal notranslate"><span class="pre">qbit</span></code> in a <code class="docutils literal notranslate"><span class="pre">QList</span></code>, and returns the join of
+all the results. Then, instead of a user writing the function
+<code class="docutils literal notranslate"><span class="pre">prepAll_recursive()</span></code>, they can simply invoke <code class="docutils literal notranslate"><span class="pre">map1(qexpr::_PrepZ,</span> <span class="pre">qs)</span></code> to
+prepare all the qubits in <code class="docutils literal notranslate"><span class="pre">qs</span></code>.</p>
+<p>Not all recursive <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> functions fit exactly into this pattern. For
+example, suppose a user wants to apply rotation gates to each qubit in a
+<code class="docutils literal notranslate"><span class="pre">QList</span></code>, with different rotation arguments for each qubit. The relevant
+recursive function would need to map over both the <code class="docutils literal notranslate"><span class="pre">QList</span></code> argument and an
+array of rotation parameters, for example:</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// Assume that params is an array of doubles of size qs.size()</span>
+<span class="n">QExpr</span><span class="w"> </span><span class="nf">RZAll_recursive</span><span class="p">(</span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">qs</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="o">*</span><span class="w"> </span><span class="n">params</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">cIf</span><span class="p">(</span><span class="n">qs</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">_RZ</span><span class="p">(</span><span class="n">qs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">params</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">RZAll_recursive</span><span class="p">(</span><span class="n">qs</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">params</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span>
+<span class="w">                    </span><span class="n">qexpr</span><span class="o">::</span><span class="n">identity</span><span class="p">()</span>
+<span class="w">  </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Because <code class="docutils literal notranslate"><span class="pre">_RZ</span></code> does not take a single qubit argument, it is not possible to apply <code class="docutils literal notranslate"><span class="pre">map1</span></code>
+directly. However,
+the <code class="docutils literal notranslate"><span class="pre">qexpr_utils.h</span></code> library also supplies a more general <code class="docutils literal notranslate"><span class="pre">map</span></code> function, which
+takes as input a function <code class="docutils literal notranslate"><span class="pre">f</span></code> that takes in any number of arguments, the first
+of which is a <code class="docutils literal notranslate"><span class="pre">qbit</span></code>. The <code class="docutils literal notranslate"><span class="pre">map</span></code> function then expects (1) a <code class="docutils literal notranslate"><span class="pre">QList</span></code> to map
+over; (2) some number of <code class="docutils literal notranslate"><span class="pre">QList</span></code> or array arguments (it applies <code class="docutils literal notranslate"><span class="pre">f</span></code> to every
+element in the array); and (3) some number of scalar arguments, which it passes
+directly to <code class="docutils literal notranslate"><span class="pre">f</span></code>.</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// qexpr_utils.h</span>
+<span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">QExprFun</span><span class="p">,</span><span class="w"> </span><span class="k">typename</span><span class="p">...</span><span class="w"> </span><span class="n">Args</span><span class="o">&gt;</span>
+<span class="n">QExpr</span><span class="w"> </span><span class="n">qexpr</span><span class="o">::</span><span class="n">map</span><span class="p">(</span><span class="n">QExprFun</span><span class="w"> </span><span class="n">f</span><span class="p">,</span><span class="w"> </span><span class="n">qlist</span><span class="o">::</span><span class="n">QList</span><span class="w"> </span><span class="n">qs</span><span class="p">,</span><span class="w"> </span><span class="n">Args</span><span class="p">...</span><span class="w"> </span><span class="n">args</span><span class="p">)</span><span class="w"> </span><span class="k">noexcept</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Instead of <code class="docutils literal notranslate"><span class="pre">RZAll_recursive(qs,</span> <span class="pre">params)</span></code>, a user can just apply
+<code class="docutils literal notranslate"><span class="pre">qexpr::map(qexpr::_RZ,</span> <span class="pre">qs,</span> <span class="pre">params)</span></code> to obtain the same result.</p>
+<p>This <code class="docutils literal notranslate"><span class="pre">map</span></code> function can be used in several ways:</p>
+<ol class="arabic simple">
+<li><p>Like <code class="docutils literal notranslate"><span class="pre">map1</span></code>, can be used to map a single-qubit gate over a <code class="docutils literal notranslate"><span class="pre">QList</span></code>:</p></li>
+</ol>
+<blockquote>
+<div><div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">qexpr</span><span class="o">::</span><span class="n">map</span><span class="p">(</span><span class="n">qexpr</span><span class="o">::</span><span class="n">_PrepZ</span><span class="p">,</span><span class="n">qs</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<ol class="arabic simple" start="2">
+<li><p>Map a multi-qubit gate, like <code class="docutils literal notranslate"><span class="pre">CNOT</span></code>, over two <code class="docutils literal notranslate"><span class="pre">QList</span></code>s:</p></li>
+</ol>
+<blockquote>
+<div><div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">qexpr</span><span class="o">::</span><span class="n">map</span><span class="p">(</span><span class="n">qexpr</span><span class="o">::</span><span class="n">_CNOT</span><span class="p">,</span><span class="w"> </span><span class="n">qs1</span><span class="p">,</span><span class="w"> </span><span class="n">qs2</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<ol class="arabic simple" start="3">
+<li><p>Map a single-qubit gate that accepts parameters, e.g. <code class="docutils literal notranslate"><span class="pre">RZ</span></code>, over a
+<code class="docutils literal notranslate"><span class="pre">QList</span></code>, with the same scalar parameter applied to each argument:</p></li>
+</ol>
+<blockquote>
+<div><div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="n">qexpr</span><span class="o">::</span><span class="n">map</span><span class="p">(</span><span class="n">qexpr</span><span class="o">::</span><span class="n">_RZ</span><span class="p">,</span><span class="n">qs</span><span class="p">,</span><span class="n">M_PI</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<ol class="arabic simple" start="4">
+<li><p>Map a single-qubit gate with parameters, like <code class="docutils literal notranslate"><span class="pre">RZ</span></code>, over (1) a <code class="docutils literal notranslate"><span class="pre">QList</span></code>
+and (2) an array of rotation parameters:</p></li>
+</ol>
+<blockquote>
+<div><div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="kt">double</span><span class="w"> </span><span class="n">params</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="n">M_PI</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">M_PI</span><span class="o">/</span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="n">M_PI</span><span class="o">/</span><span class="mi">8</span><span class="p">};</span>
+<span class="n">qexpr</span><span class="o">::</span><span class="n">eval_hold</span><span class="p">(</span><span class="n">qexpr</span><span class="o">::</span><span class="n">map</span><span class="p">(</span><span class="n">qexpr</span><span class="o">::</span><span class="n">_RZ</span><span class="p">,</span><span class="w"> </span><span class="n">qs</span><span class="p">,</span><span class="w"> </span><span class="n">params</span><span class="p">));</span>
+</pre></div>
+</div>
+</div></blockquote>
+</section>
+<section id="local-qubits">
+<span id="id1"></span><h1>Local qubits<a class="headerlink" href="#local-qubits" title="Link to this heading">¶</a></h1>
+<p>Like <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions, <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> functions can use both local and global
+qubits. However, while top-level <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions cannot accept qubit
+arguments, there is no such restriction for quantum kernel expressions. Qubits
+or <code class="docutils literal notranslate"><span class="pre">QList</span></code> values can now be declared locally in a non-quantum function and
+passed to top-level <code class="docutils literal notranslate"><span class="pre">QExpr</span></code> functions. For example:</p>
+<div class="highlight-C++ notranslate"><div class="highlight"><pre><span></span><span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">qbit</span><span class="w"> </span><span class="n">q</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w"> </span><span class="n">b</span><span class="p">;</span>
+<span class="w">  </span><span class="n">eval_hold</span><span class="p">(</span><span class="n">_PrepZ</span><span class="p">(</span><span class="n">q</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">_H</span><span class="p">(</span><span class="n">q</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">_MeasZ</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The underlying reason for this is that every evaluation call to <code class="docutils literal notranslate"><span class="pre">eval_hold</span></code> or
+<code class="docutils literal notranslate"><span class="pre">eval_release</span></code> from a (classical) function <code class="docutils literal notranslate"><span class="pre">foo()</span></code> tells the compiler to
+treat <code class="docutils literal notranslate"><span class="pre">foo()</span></code> as a <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> function. Because
+local qubits can be declared inside <code class="docutils literal notranslate"><span class="pre">quantum_kernel</span></code> functions, they can therefore
+be declared in classical functions with evaluation calls.</p>
+<p>If local qubits are declared within a <code class="docutils literal notranslate"><span class="pre">QExpr</span></code>-returning function, it is best practice
+to use the <code class="docutils literal notranslate"><span class="pre">PROTECT</span></code> attribute; see <a class="reference internal" href="support.html#limitations"><span class="std std-ref">Known limitations</span></a>.</p>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Intel® Quantum SDK API</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dgr/index.html">Developers Guide and Reference</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">FLEQ Guide and Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="features.html">Features</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="advanced.html">Advanced topics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="support.html">Support</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../citations.html">Citations</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">FLEQ Guide and Reference</a><ul>
+  <li><a href="advanced.html">Advanced topics</a><ul>
+      <li>Previous: <a href="classical-quantum-ordering.html" title="previous chapter">Ordering of classical and quantum operations</a></li>
+      <li>Next: <a href="dsl.html" title="next chapter">Domain-specific languages using FLEQ</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2024 Intel Corporation. All Rights Reserved.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/fleq/higher-order.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
