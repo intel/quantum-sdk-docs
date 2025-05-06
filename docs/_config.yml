@@ -1,6 +1,3 @@
 title: "Intel Quantum SDK"
-locale: "en-US"
-url: "https://intel.github.io/quantum-sdk-docs/"
-repository: "https://github.com/intel/quantum-sdk-docs"
 theme: jekyll-theme-minimal
 
